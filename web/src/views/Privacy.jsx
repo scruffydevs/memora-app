@@ -1,0 +1,52 @@
+import React, { useState } from 'react';
+import { api } from '../api.js';
+import { Card, H2, Notice, Toggle, useAsync } from '../ui.jsx';
+
+export default function Privacy({ pid }) {
+  const prof = useAsync(() => api.get(`/api/patients/${pid}/profile`), [pid]);
+  const photos = useAsync(() => api.get(`/api/patients/${pid}/photos`), [pid]);
+  const [msg, setMsg] = useState(null);
+
+  if (prof.loading) return <p className="text-muted">Loading…</p>;
+  if (prof.error) return <Notice tone="terra">{prof.error.message}</Notice>;
+  const { profile, encryptionReady } = prof.data;
+
+  const change = async (patch) => {
+    if (patch.consent_photos === false && (photos.data?.length || 0) > 0 && !window.confirm(`Turning photo consent off deletes all ${photos.data.length} stored photo(s). Continue?`)) return;
+    try { await api.put(`/api/patients/${pid}/profile`, { ...profile, ...patch }); prof.reload(); photos.reload(); setMsg({ tone: 'sage', t: 'Saved.' }); }
+    catch (e) { setMsg({ tone: 'terra', t: e.message }); }
+  };
+
+  return (
+    <div className="space-y-6 max-w-3xl">
+      <H2 hint="The patient decides what Memora keeps. These switches are theirs, or their representative's.">Consent and privacy</H2>
+      {msg && <Notice tone={msg.tone}>{msg.t}</Notice>}
+      <Card className="p-6 space-y-6">
+        <Toggle checked={profile.consent_photos} onChange={(v) => change({ consent_photos: v })} label="Store photos of the patient and the people they know"
+          hint="Photos are encrypted before they reach the database. Turning this off deletes every stored photo." />
+        <Toggle checked={profile.consent_caregiver_view} onChange={(v) => change({ consent_caregiver_view: v })} label="Caregivers can see this profile and these logs"
+          hint="Recorded here as the patient's choice. Sharing with a doctor will have its own switch when the clinician report is built." />
+      </Card>
+
+      {!encryptionReady && <Notice tone="terra">Photo storage is switched off on the server (no encryption key is set), so photos cannot be saved yet.</Notice>}
+
+      <Card className="p-6">
+        <H2>What is stored</H2>
+        <ul className="space-y-2 list-disc pl-5">
+          <li>The profile, people and care logs you type in.</li>
+          <li><b>{photos.data?.length ?? 0}</b> encrypted photo(s). Photos are only shown in this app.</li>
+          <li>Nothing here is sent to an AI model. Any later model use will go through the privacy gateway, with a receipt.</li>
+        </ul>
+      </Card>
+
+      <Card className="p-6 bg-tgold/50">
+        <H2>What is not built</H2>
+        <ul className="space-y-2 list-disc pl-5">
+          <li>Face recognition. Photos are for people to look at, not for matching.</li>
+          <li>The doctor report and its sharing controls.</li>
+          <li>Real patient data. This prototype runs on a synthetic persona only.</li>
+        </ul>
+      </Card>
+    </div>
+  );
+}

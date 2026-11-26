@@ -1,0 +1,13 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html { font-size: 17px; }
+body {
+  @apply text-ink font-body antialiased;
+  background: linear-gradient(135deg, #FCF6E8 0%, #F6EBD3 60%, #F9F0DC 100%);
+  background-attachment: fixed;
+  min-height: 100vh;
+}
+.input { @apply w-full rounded-xl border border-line bg-white px-3 py-2.5 text-ink placeholder:text-muted/60 focus:outline-none focus:ring-2 focus:ring-terra/40 focus:border-terra; }
+.label { @apply block text-sm font-semibold text-muted mb-1; }
