@@ -30,7 +30,7 @@ export default function Overview({ pid, go }) {
               {pr.traits.map((t) => <Chip key={t} tone="gold">{t}</Chip>)}
             </div>
           </div>
-          <div className="flex gap-2"><Btn onClick={() => go('arena')}>Open log arena</Btn><Btn kind="ghost" onClick={() => go('profile')}>Edit profile</Btn></div>
+          <div className="flex gap-2"><Btn onClick={() => go('arena')}>Open log arena</Btn><Btn kind="ghost" onClick={() => go('file')}>See patient file</Btn></div>
         </div>
         {pr.background && <p className="mt-5 text-lg leading-relaxed max-w-3xl">{pr.background}</p>}
       </Card>
@@ -45,7 +45,7 @@ export default function Overview({ pid, go }) {
         </div>
       </Card>
 
-      {empty && <Notice tone="gold">The profile is mostly empty. The more you add about who they are and what helps, the more useful this page becomes. <button className="font-bold underline" onClick={() => go('profile')}>Start the profile</button></Notice>}
+      {empty && <Notice tone="gold">The Memora team is still completing this patient file. Meanwhile, write what you notice in the <button className="font-bold underline" onClick={() => go('arena')}>log arena</button> so it is not lost.</Notice>}
 
       <div className="grid gap-6 md:grid-cols-3">
         <Card className="p-5"><H2>What helps</H2><Chips items={pr.calming} tone="sage" empty="Add what calms them" /></Card>

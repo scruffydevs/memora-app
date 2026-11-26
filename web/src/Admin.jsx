@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { api } from './api.js';
 import { Btn, Card, Chip, Field, H2, Notice, dateTime, useAsync } from './ui.jsx';
+import { navigate } from './router.jsx';
 
-function CodeBox({ info, onClose }) {
+export function CodeBox({ info, onClose }) {
   const [copied, setCopied] = useState(false);
   const copy = async () => { try { await navigator.clipboard.writeText(info.code); setCopied(true); } catch { /* ignore */ } };
   return (
@@ -17,7 +18,7 @@ function CodeBox({ info, onClose }) {
   );
 }
 
-function PatientRow({ p, onOpen, reload }) {
+function PatientRow({ p, reload }) {
   const [role, setRole] = useState('primary');
   const [code, setCode] = useState(null);
   const [err, setErr] = useState('');
@@ -34,7 +35,7 @@ function PatientRow({ p, onOpen, reload }) {
           <p className="font-display text-xl font-bold leading-tight">{p.name} {p.is_demo && <Chip tone="gold">Demo</Chip>}</p>
           <p className="text-sm text-muted font-mono">{p.patient_code}</p>
         </div>
-        <Btn kind="ghost" onClick={() => onOpen(p.id)}>Open dashboard</Btn>
+        <Btn onClick={() => navigate(`/admin/patients/${p.id}`)}>Open patient file</Btn>
       </div>
       <div className="mt-3">
         <p className="label">Connected caregivers</p>
@@ -63,7 +64,7 @@ function PatientRow({ p, onOpen, reload }) {
   );
 }
 
-function Patients({ onOpen }) {
+function Patients() {
   const { data, loading, error, reload } = useAsync(() => api.get('/api/admin/patients'), []);
   const [f, setF] = useState({ name: '', preferred_name: '', language: '', age_band: '' });
   const [err, setErr] = useState('');
@@ -86,11 +87,11 @@ function Patients({ onOpen }) {
           <Field label="Age band"><input className="input" value={f.age_band} onChange={(e) => set('age_band', e.target.value)} placeholder="e.g. 70s" /></Field>
         </div>
         {err && <div className="mt-4"><Notice tone="terra">{err}</Notice></div>}
-        {made && <div className="mt-4"><Notice tone="sage"><b>{made.name}</b> created with patient code <b className="font-mono">{made.patient_code}</b>. Scroll down to generate a connection code for their caregiver.</Notice></div>}
+        {made && <div className="mt-4"><Notice tone="sage"><b>{made.name}</b> created with patient code <b className="font-mono">{made.patient_code}</b>. Next: open the patient file to complete the profile, then generate a connection code for their caregiver.</Notice></div>}
         <Btn className="mt-4" onClick={create}>Create patient account</Btn>
       </Card>
       {loading ? <p className="text-muted">Loading…</p> : error ? <Notice tone="terra">{error.message}</Notice> : !data.length ? <Card className="p-8 text-center text-muted">No patient accounts yet.</Card> : (
-        <div className="grid gap-5 lg:grid-cols-2">{data.map((p) => <PatientRow key={p.id} p={p} onOpen={onOpen} reload={reload} />)}</div>
+        <div className="grid gap-5 lg:grid-cols-2">{data.map((p) => <PatientRow key={p.id} p={p} reload={reload} />)}</div>
       )}
     </div>
   );
@@ -142,7 +143,7 @@ function Activity() {
   );
 }
 
-export default function AdminConsole({ me, onOpen, onSignOut }) {
+export default function AdminConsole({ me, onSignOut }) {
   const [tab, setTab] = useState('patients');
   return (
     <div className="max-w-6xl mx-auto px-4 pb-16">
@@ -156,7 +157,7 @@ export default function AdminConsole({ me, onOpen, onSignOut }) {
           <button key={k} onClick={() => setTab(k)} className={`px-4 py-2.5 font-semibold border-b-[3px] -mb-px ${tab === k ? 'border-terra text-terra' : 'border-transparent text-muted hover:text-ink'}`}>{l}</button>
         ))}
       </nav>
-      {tab === 'patients' && <Patients onOpen={onOpen} />}
+      {tab === 'patients' && <Patients />}
       {tab === 'caregivers' && <Caregivers />}
       {tab === 'activity' && <Activity />}
       <p className="text-xs text-muted mt-10 text-center">The Memora team can open any patient to help set up. Every connection and code is recorded under Activity.</p>

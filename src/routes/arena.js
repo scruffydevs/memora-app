@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { q, pool } from '../db.js';
 import { wrap, str, TRAITS, CONTEXT_TYPES, RELATIONS } from '../util.js';
+import { requireAdmin } from '../auth.js';
 
 const r = Router();
 
@@ -8,14 +9,14 @@ const r = Router();
 r.get('/patients/:id/medicines', wrap(async (req, res) =>
   res.json((await q('SELECT id, name, dose, schedule FROM medicines WHERE patient_id=$1 ORDER BY name', [req.params.id])).rows)));
 
-r.post('/patients/:id/medicines', wrap(async (req, res) => {
+r.post('/patients/:id/medicines', requireAdmin, wrap(async (req, res) => {
   const name = str(req.body?.name, 120);
   if (!name) return res.status(400).json({ error: 'name is required' });
   res.status(201).json((await q('INSERT INTO medicines (patient_id, name, dose, schedule) VALUES ($1,$2,$3,$4) RETURNING id, name, dose, schedule',
     [req.params.id, name, str(req.body.dose, 60), str(req.body.schedule, 120)])).rows[0]);
 }));
 
-r.delete('/medicines/:id', wrap(async (req, res) => { await q('DELETE FROM medicines WHERE id=$1', [req.params.id]); res.status(204).end(); }));
+r.delete('/medicines/:id', requireAdmin, wrap(async (req, res) => { await q('DELETE FROM medicines WHERE id=$1', [req.params.id]); res.status(204).end(); }));
 
 // ---------- observations ----------
 r.post('/patients/:id/observations', wrap(async (req, res) => {

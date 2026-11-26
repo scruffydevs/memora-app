@@ -3,24 +3,22 @@ import { api } from './api.js';
 import { Btn, Card, Chip } from './ui.jsx';
 import Overview from './views/Overview.jsx';
 import Arena from './views/Arena.jsx';
-import Profile from './views/Profile.jsx';
-import People from './views/People.jsx';
+import PatientFile from './views/PatientFile.jsx';
 import Behaviour from './views/Behaviour.jsx';
 import Logs from './views/Logs.jsx';
 import Privacy from './views/Privacy.jsx';
 
+// Caregivers read the patient file and log what they notice. The Memora team does the profiling (/admin).
 const TABS = [
-  ['overview', 'Overview'], ['arena', 'Log arena'], ['profile', 'Patient file'], ['people', 'People'],
-  ['behaviour', 'Behaviour'], ['logs', 'Logs'], ['privacy', 'Privacy'],
+  ['overview', 'Overview'], ['arena', 'Log arena'], ['behaviour', 'Behaviour'], ['logs', 'Logs'],
+  ['file', 'Patient file'], ['privacy', 'Privacy and access'],
 ];
-const VIEWS = { overview: Overview, arena: Arena, profile: Profile, people: People, behaviour: Behaviour, logs: Logs, privacy: Privacy };
+const VIEWS = { overview: Overview, arena: Arena, behaviour: Behaviour, logs: Logs, file: PatientFile, privacy: Privacy };
 
-// The caregiver's dashboard for one connected patient. The server returns only the patients this user may open.
-export default function Dashboard({ me, initialPid, onSignOut, onBack, onConnectAnother, onMeChange }) {
+export default function Dashboard({ me, onSignOut, onConnectAnother, onMeChange }) {
   const [patients, setPatients] = useState(null);
-  const [pid, setPid] = useState(initialPid ?? null);
+  const [pid, setPid] = useState(null);
   const [tab, setTab] = useState('overview');
-  const isAdmin = me.user.role === 'admin';
 
   useEffect(() => {
     api.get('/api/patients').then((list) => { setPatients(list); setPid((cur) => (list.some((p) => p.id === cur) ? cur : list[0]?.id ?? null)); }).catch(() => setPatients([]));
@@ -35,7 +33,7 @@ export default function Dashboard({ me, initialPid, onSignOut, onBack, onConnect
       <header className="flex flex-wrap items-center gap-3 py-5">
         <div className="mr-auto">
           <div className="font-display text-3xl font-bold leading-none">Memora</div>
-          <div className="text-xs font-bold tracking-[0.25em] text-terra mt-1">{isAdmin ? 'MEMORA TEAM VIEW' : 'CAREGIVER'}</div>
+          <div className="text-xs font-bold tracking-[0.25em] text-terra mt-1">CAREGIVER</div>
         </div>
         {patients.length > 1 && (
           <select className="input !w-auto" value={pid ?? ''} onChange={(e) => { setPid(Number(e.target.value)); setTab('overview'); }} aria-label="Patient">
@@ -43,8 +41,7 @@ export default function Dashboard({ me, initialPid, onSignOut, onBack, onConnect
           </select>
         )}
         {current && <Chip tone="plain">{current.patient_code}</Chip>}
-        {onBack && <Btn kind="ghost" onClick={onBack}>Back to team console</Btn>}
-        {onConnectAnother && <Btn kind="ghost" onClick={onConnectAnother}>+ Connect with a code</Btn>}
+        <Btn kind="ghost" onClick={onConnectAnother}>+ Connect with a code</Btn>
         <span className="text-sm text-muted hidden sm:inline">{me.user.name}</span>
         <Btn kind="ghost" onClick={onSignOut}>Sign out</Btn>
       </header>

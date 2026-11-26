@@ -2,6 +2,9 @@ import { Router } from 'express';
 import { q } from '../db.js';
 import { wrap, toList, str, BEHAVIOUR_CATEGORIES, LOG_KINDS } from '../util.js';
 import { encrypt, decrypt, encryptionReady } from '../crypto.js';
+import { requireAdmin } from '../auth.js';
+
+// Profiling (the patient file, people, consent, photos) is done by the Memora team. Caregivers read it and log.
 
 const r = Router();
 
@@ -26,7 +29,7 @@ r.get('/patients/:id/profile', wrap(async (req, res) => {
   res.json({ patient: p, profile: prof, photoId: photo?.id ?? null, encryptionReady: encryptionReady() });
 }));
 
-r.put('/patients/:id/profile', wrap(async (req, res) => {
+r.put('/patients/:id/profile', requireAdmin, wrap(async (req, res) => {
   const id = Number(req.params.id);
   const b = req.body || {};
   const row = (await q(
@@ -57,7 +60,7 @@ r.get('/patients/:id/contacts', wrap(async (req, res) => {
        FROM contacts c WHERE c.patient_id=$1 ORDER BY c.name`, [req.params.id])).rows);
 }));
 
-r.post('/patients/:id/contacts', wrap(async (req, res) => {
+r.post('/patients/:id/contacts', requireAdmin, wrap(async (req, res) => {
   const b = req.body || {};
   const name = str(b.name, 120);
   if (!name) return res.status(400).json({ error: 'name is required' });
@@ -66,7 +69,7 @@ r.post('/patients/:id/contacts', wrap(async (req, res) => {
     [req.params.id, name, str(b.relationship, 60), str(b.mention, 400), Boolean(b.enrolled), Boolean(b.consent_noted)])).rows[0]);
 }));
 
-r.put('/contacts/:id', wrap(async (req, res) => {
+r.put('/contacts/:id', requireAdmin, wrap(async (req, res) => {
   const b = req.body || {};
   const name = str(b.name, 120);
   if (!name) return res.status(400).json({ error: 'name is required' });
@@ -79,7 +82,7 @@ r.put('/contacts/:id', wrap(async (req, res) => {
   res.json(row);
 }));
 
-r.delete('/contacts/:id', wrap(async (req, res) => { await q('DELETE FROM contacts WHERE id=$1', [req.params.id]); res.status(204).end(); }));
+r.delete('/contacts/:id', requireAdmin, wrap(async (req, res) => { await q('DELETE FROM contacts WHERE id=$1', [req.params.id]); res.status(204).end(); }));
 
 // ---------- care logs and behaviour ----------
 r.get('/patients/:id/logs', wrap(async (req, res) => {
@@ -131,7 +134,7 @@ r.get('/patients/:id/behaviour-summary', wrap(async (req, res) => {
 r.get('/patients/:id/photos', wrap(async (req, res) =>
   res.json((await q('SELECT id, contact_id, label, mime, created_at FROM photos WHERE patient_id=$1 ORDER BY created_at DESC', [req.params.id])).rows)));
 
-r.post('/patients/:id/photos', wrap(async (req, res) => {
+r.post('/patients/:id/photos', requireAdmin, wrap(async (req, res) => {
   if (!encryptionReady()) return res.status(503).json({ error: 'photo_encryption_not_configured' });
   const id = Number(req.params.id);
   const { contactId, label, dataUrl } = req.body || {};
@@ -160,6 +163,6 @@ r.get('/photos/:id', wrap(async (req, res) => {
   res.set('Content-Type', p.mime).set('Cache-Control', 'private, no-store').send(decrypt(p.iv, p.data));
 }));
 
-r.delete('/photos/:id', wrap(async (req, res) => { await q('DELETE FROM photos WHERE id=$1', [req.params.id]); res.status(204).end(); }));
+r.delete('/photos/:id', requireAdmin, wrap(async (req, res) => { await q('DELETE FROM photos WHERE id=$1', [req.params.id]); res.status(204).end(); }));
 
 export default r;

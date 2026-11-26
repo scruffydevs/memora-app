@@ -46,7 +46,8 @@ function MedicineCompare({ pid, refreshKey }) {
   );
 }
 
-export default function Arena({ pid }) {
+// readOnly = the Memora team's oversight view: the notes and the before/after comparison, without the entry form.
+export default function Arena({ pid, readOnly = false }) {
   const meds = useAsync(() => api.get(`/api/patients/${pid}/medicines`), [pid]);
   const [filter, setFilter] = useState('');
   const list = useAsync(() => api.get(`/api/patients/${pid}/observations?limit=60${filter ? `&context=${filter}` : ''}`), [pid, filter]);
@@ -54,7 +55,6 @@ export default function Arena({ pid }) {
   const [f, setF] = useState({ ts: localNow(), ctx: 'none', rel: 'before', mins: '', medicine_id: '', traits: {}, note: '' });
   const [err, setErr] = useState('');
   const [ok, setOk] = useState('');
-  const [newMed, setNewMed] = useState({ name: '', dose: '' });
   const set = (k, v) => setF((s) => ({ ...s, [k]: v }));
   const setTrait = (t, patch) => setF((s) => ({ ...s, traits: { ...s.traits, [t]: { ...s.traits[t], ...patch } } }));
   const toggleTrait = (t) => setF((s) => { const n = { ...s.traits }; if (n[t]) delete n[t]; else n[t] = { v: null, detail: '' }; return { ...s, traits: n }; });
@@ -74,10 +74,6 @@ export default function Arena({ pid }) {
       setOk('Saved to the log.'); list.reload(); setKey((k) => k + 1);
     } catch (e) { setErr(e.message); }
   };
-  const addMed = async () => {
-    if (!newMed.name.trim()) return;
-    try { const m = await api.post(`/api/patients/${pid}/medicines`, newMed); setNewMed({ name: '', dose: '' }); await meds.reload(); set('medicine_id', String(m.id)); } catch (e) { setErr(e.message); }
-  };
   const remove = async (id) => { if (window.confirm('Delete this entry?')) { await api.del(`/api/observations/${id}`); list.reload(); setKey((k) => k + 1); } };
 
   const showMins = f.ctx !== 'none' && f.ctx !== 'sleep' && f.rel !== 'during';
@@ -85,7 +81,7 @@ export default function Arena({ pid }) {
   return (
     <div className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
       <div className="space-y-6">
-        <Card className="p-6 space-y-6">
+        {!readOnly && <Card className="p-6 space-y-6">
           <H2 hint="Note how they were, when, and what it was around. Small details help the doctor most.">Log arena</H2>
 
           <section>
@@ -124,11 +120,7 @@ export default function Arena({ pid }) {
                       <option value="">Not sure or not listed</option>
                       {(meds.data || []).map((m) => <option key={m.id} value={m.id}>{m.name}{m.dose ? `, ${m.dose}` : ''}</option>)}
                     </select>
-                    <div className="flex gap-2 mt-2">
-                      <input className="input" placeholder="Add a medicine" value={newMed.name} onChange={(e) => setNewMed({ ...newMed, name: e.target.value })} />
-                      <input className="input !w-32" placeholder="Dose" value={newMed.dose} onChange={(e) => setNewMed({ ...newMed, dose: e.target.value })} />
-                      <Btn kind="ghost" onClick={addMed}>Add</Btn>
-                    </div>
+                    {!(meds.data || []).length && <p className="text-xs text-muted mt-1">No medicines are listed yet. Ask the Memora team to add it. You can still save this note.</p>}
                   </Field>
                 )}
               </div>
@@ -169,7 +161,7 @@ export default function Arena({ pid }) {
             {ok && <Notice tone="sage">{ok}</Notice>}
             <Btn onClick={save}>Save to the log</Btn>
           </section>
-        </Card>
+        </Card>}
 
         <Card className="p-6"><H2 hint="Notes made before a medicine against notes made after">Around medicine</H2><MedicineCompare pid={pid} refreshKey={key} /></Card>
       </div>

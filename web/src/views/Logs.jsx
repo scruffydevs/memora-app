@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { api } from '../api.js';
 import { Btn, Card, Chip, Field, H2, Notice, KINDS, LABELS, dateTime, dayLabel, useAsync } from '../ui.jsx';
 
-export default function Logs({ pid }) {
+// readOnly = the Memora team's oversight view (no add form, no delete).
+export default function Logs({ pid, readOnly = false }) {
   const [kind, setKind] = useState('');
   const { data, loading, error, reload } = useAsync(() => api.get(`/api/patients/${pid}/logs?limit=100${kind ? `&kind=${kind}` : ''}`), [pid, kind]);
   const [f, setF] = useState({ kind: 'note', text: '' });
@@ -25,7 +26,7 @@ export default function Logs({ pid }) {
   }
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_20rem]">
+    <div className={`grid gap-6 ${readOnly ? '' : 'lg:grid-cols-[1fr_20rem]'}`}>
       <div>
         <div className="flex flex-wrap gap-2 mb-4">
           {['', ...KINDS].map((k) => (
@@ -47,7 +48,7 @@ export default function Logs({ pid }) {
                       </div>
                       <p className="mt-1">{l.text}</p>
                       {(l.trigger_text || l.helped) && <p className="text-sm text-muted">{l.trigger_text && <>Trigger: {l.trigger_text}. </>}{l.helped && <>Helped: {l.helped}.</>}</p>}
-                      <button className="text-xs text-terra hover:underline mt-1" onClick={() => remove(l.id)}>Delete</button>
+                      {!readOnly && <button className="text-xs text-terra hover:underline mt-1" onClick={() => remove(l.id)}>Delete</button>}
                     </div>
                   ))}
                 </Card>
@@ -57,7 +58,7 @@ export default function Logs({ pid }) {
         )}
       </div>
 
-      <Card className="p-5 self-start lg:sticky lg:top-4">
+      {!readOnly && <Card className="p-5 self-start lg:sticky lg:top-4">
         <H2>Add a log</H2>
         <div className="space-y-3">
           <Field label="Type">
@@ -68,7 +69,7 @@ export default function Logs({ pid }) {
           <Btn className="w-full" onClick={add}>Add log</Btn>
           <p className="text-xs text-muted">For behaviour, use the Behaviour tab.</p>
         </div>
-      </Card>
+      </Card>}
     </div>
   );
 }

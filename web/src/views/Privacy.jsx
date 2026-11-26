@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { api } from '../api.js';
-import { Btn, Card, H2, Notice, Toggle, useAsync } from '../ui.jsx';
+import { Btn, Card, Chip, H2, Notice, Toggle, useAsync } from '../ui.jsx';
 import CareTeam from './CareTeam.jsx';
 
-export default function Privacy({ pid, me, onMeChange }) {
+// editable = the Memora team's consent page (switches). Caregivers see the same facts, read-only.
+export default function Privacy({ pid, me, onMeChange, editable = false }) {
   const prof = useAsync(() => api.get(`/api/patients/${pid}/profile`), [pid]);
   const photos = useAsync(() => api.get(`/api/patients/${pid}/photos`), [pid]);
   const [msg, setMsg] = useState(null);
@@ -20,13 +21,22 @@ export default function Privacy({ pid, me, onMeChange }) {
 
   return (
     <div className="space-y-6 max-w-3xl">
-      <H2 hint="The patient decides what Memora keeps. These switches are theirs, or their representative's.">Consent and privacy</H2>
+      <H2 hint={editable ? "Record what the patient, or their representative, has agreed to. Changing these is the Memora team's job." : 'What the patient, or their representative, has agreed to. The Memora team keeps this up to date.'}>Consent and privacy</H2>
       {msg && <Notice tone={msg.tone}>{msg.t}</Notice>}
       <Card className="p-6 space-y-6">
-        <Toggle checked={profile.consent_photos} onChange={(v) => change({ consent_photos: v })} label="Store photos of the patient and the people they know"
-          hint="Photos are encrypted before they reach the database. Turning this off deletes every stored photo." />
-        <Toggle checked={profile.consent_caregiver_view} onChange={(v) => change({ consent_caregiver_view: v })} label="Caregivers can see this profile and these logs"
-          hint="Recorded here as the patient's choice. Sharing with a doctor will have its own switch when the clinician report is built." />
+        {editable ? (
+          <>
+            <Toggle checked={profile.consent_photos} onChange={(v) => change({ consent_photos: v })} label="Store photos of the patient and the people they know"
+              hint="Photos are encrypted before they reach the database. Turning this off deletes every stored photo." />
+            <Toggle checked={profile.consent_caregiver_view} onChange={(v) => change({ consent_caregiver_view: v })} label="Caregivers can see this profile and these logs"
+              hint="Recorded here as the patient's choice. Sharing with a doctor will have its own switch when the clinician report is built." />
+          </>
+        ) : (
+          <ul className="space-y-3">
+            <li className="flex flex-wrap items-center gap-2"><Chip tone={profile.consent_photos ? 'sage' : 'plain'}>{profile.consent_photos ? 'On' : 'Off'}</Chip><span>Photos of the patient and the people they know are stored, encrypted.</span></li>
+            <li className="flex flex-wrap items-center gap-2"><Chip tone={profile.consent_caregiver_view ? 'sage' : 'plain'}>{profile.consent_caregiver_view ? 'On' : 'Off'}</Chip><span>Caregivers can see this profile and these logs.</span></li>
+          </ul>
+        )}
       </Card>
 
       <Card className="p-6">

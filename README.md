@@ -4,6 +4,16 @@ Memora: an adaptive memory layer for early-stage Alzheimer's. This repo is the w
 
 **Prototype. Synthetic data only.** Never load real patient data. Design documents live in the separate `memora` repo.
 
+## Two areas
+
+| URL | Who | What they do |
+| --- | --- | --- |
+| `/` | Anyone | Chooses an area |
+| `/admin` | The Memora team | Creates patient accounts and **does the profiling**: patient file, people, medicines, consent, photos. Connects and changes caregivers. Can read the logs |
+| `/caregiver` | Caregivers | Reads the **patient file (read-only)** and logs: log arena, behaviour, logs. Cannot edit the profile |
+
+The split is enforced by the server, not just hidden in the interface.
+
 ## How accounts work
 
 1. The Memora team (admin) signs in and **creates the patient account**. It gets a patient code like `MP-4F7K2X`.

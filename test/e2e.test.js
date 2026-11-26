@@ -125,8 +125,13 @@ test('logs record the signed-in author, not what the client claims', async () =>
   assert.equal(l.status, 201);
   assert.equal(l.json.logged_by, 'Alice');
   aliceLog = l.json;
-  aliceContact = (await alice('POST', `/api/patients/${P1.id}/contacts`, { name: 'Anita Rao', relationship: 'daughter', consent_noted: true })).json;
-  const med = (await alice('POST', `/api/patients/${P1.id}/medicines`, { name: 'Evening tablet', dose: '1' })).json;
+  // Profiling is the Memora team's job: a connected caregiver can read it and log, but not change it.
+  assert.equal((await alice('POST', `/api/patients/${P1.id}/contacts`, { name: 'X' })).status, 403);
+  assert.equal((await alice('POST', `/api/patients/${P1.id}/medicines`, { name: 'X' })).status, 403);
+  assert.equal((await alice('PUT', `/api/patients/${P1.id}/profile`, { preferred_name: 'X' })).status, 403);
+  aliceContact = (await admin('POST', `/api/patients/${P1.id}/contacts`, { name: 'Anita Rao', relationship: 'daughter', consent_noted: true })).json;
+  const med = (await admin('POST', `/api/patients/${P1.id}/medicines`, { name: 'Evening tablet', dose: '1' })).json;
+  assert.equal((await alice('GET', `/api/patients/${P1.id}/medicines`)).json.length, 1); // but she can read them
   const o = await alice('POST', `/api/patients/${P1.id}/observations`, { context_type: 'medicine', context_relation: 'after', minutes_offset: 30, medicine_id: med.id, logged_by: 'Mallory', traits: [{ trait: 'agitation', vs_usual: 1, detail: 'calmer' }] });
   assert.equal(o.status, 201);
   const list = (await alice('GET', `/api/patients/${P1.id}/observations`)).json;
@@ -138,13 +143,14 @@ test('logs record the signed-in author, not what the client claims', async () =>
 test('photos need consent, are encrypted at rest and stay scoped', async () => {
   const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', 'base64');
   const dataUrl = `data:image/png;base64,${png.toString('base64')}`;
-  assert.equal((await alice('POST', `/api/patients/${P1.id}/photos`, { dataUrl })).status, 403); // patient consent is off
-  const prof = (await alice('GET', `/api/patients/${P1.id}/profile`)).json.profile;
-  assert.equal((await alice('PUT', `/api/patients/${P1.id}/profile`, { ...prof, consent_photos: true })).status, 200);
-  const noConsent = (await alice('POST', `/api/patients/${P1.id}/contacts`, { name: 'No Consent' })).json;
-  assert.equal((await alice('POST', `/api/patients/${P1.id}/photos`, { contactId: noConsent.id, dataUrl })).status, 403); // person has not agreed
-  assert.equal((await alice('POST', `/api/patients/${P1.id}/photos`, { dataUrl: 'data:text/html;base64,PGI+' })).status, 400); // not an image
-  const up = await alice('POST', `/api/patients/${P1.id}/photos`, { contactId: aliceContact.id, dataUrl });
+  assert.equal((await alice('POST', `/api/patients/${P1.id}/photos`, { dataUrl })).status, 403); // caregivers cannot add photos
+  assert.equal((await admin('POST', `/api/patients/${P1.id}/photos`, { dataUrl })).status, 403); // and patient consent is off
+  const prof = (await admin('GET', `/api/patients/${P1.id}/profile`)).json.profile;
+  assert.equal((await admin('PUT', `/api/patients/${P1.id}/profile`, { ...prof, consent_photos: true })).status, 200);
+  const noConsent = (await admin('POST', `/api/patients/${P1.id}/contacts`, { name: 'No Consent' })).json;
+  assert.equal((await admin('POST', `/api/patients/${P1.id}/photos`, { contactId: noConsent.id, dataUrl })).status, 403); // person has not agreed
+  assert.equal((await admin('POST', `/api/patients/${P1.id}/photos`, { dataUrl: 'data:text/html;base64,PGI+' })).status, 400); // not an image
+  const up = await admin('POST', `/api/patients/${P1.id}/photos`, { contactId: aliceContact.id, dataUrl });
   assert.equal(up.status, 201);
   photoId = up.json.id;
   const got = await alice('GET', `/api/photos/${photoId}`);
