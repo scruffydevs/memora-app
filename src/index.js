@@ -9,6 +9,7 @@ import { runMigrations } from './migrate.js';
 import { wrap } from './util.js';
 import core from './routes/core.js';
 import caregiver from './routes/caregiver.js';
+import arena from './routes/arena.js';
 
 const app = express();
 const origins = (process.env.WEB_ORIGIN || '').split(',').map((s) => s.trim()).filter(Boolean);
@@ -25,6 +26,7 @@ app.use('/api', (req, res, next) => {
 });
 app.use('/api', core);
 app.use('/api', caregiver);
+app.use('/api', arena);
 
 // If the web app has been built (web/dist), serve it from the same URL. One deploy, one app slot.
 const dist = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'web', 'dist');

@@ -86,7 +86,29 @@ export const dateTime = (ts) => new Date(ts).toLocaleString(undefined, { day: 'n
 export const dayLabel = (ts) => new Date(ts).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
 export const LABELS = { sleep: 'Sleep', mood: 'Mood', agitation: 'Agitation', wandering: 'Wandering', eating: 'Eating', confusion: 'Confusion', repeated_question: 'Repeated questions', social: 'Social', other: 'Other', behaviour: 'Behaviour', medicine: 'Medicine', meal: 'Meal', visit: 'Visit', incident: 'Incident', note: 'Note' };
 export const CATEGORIES = ['sleep', 'mood', 'agitation', 'wandering', 'eating', 'confusion', 'repeated_question', 'social', 'other'];
-export const KINDS = ['behaviour', 'medicine', 'meal', 'visit', 'incident', 'note'];
+export const TRAITS = [
+  ['mood', 'Mood', 'Worse = lower or more tearful'], ['alertness', 'Alertness', 'Worse = drowsier or vacant'], ['orientation', 'Orientation', 'Knows time, place, people'],
+  ['memory', 'Memory', 'Recall of recent things'], ['speech', 'Speech', 'Finding words, making sense'], ['appetite', 'Appetite', 'Interest in food and drink'],
+  ['energy', 'Energy', 'Worse = more tired'], ['agitation', 'Agitation', 'Worse = more restless'], ['anxiety', 'Anxiety', 'Worse = more worried'],
+  ['mobility', 'Mobility and balance', 'Steadiness on their feet'], ['pain', 'Pain', 'Worse = more discomfort'], ['sleepiness', 'Sleepiness', 'Worse = more sleepy than usual'],
+  ['social', 'Social engagement', 'Interest in people'],
+];
+export const TRAIT_LABEL = Object.fromEntries(TRAITS.map(([k, l]) => [k, l]));
+export const LEVELS = [[-2, 'Much worse'], [-1, 'Worse'], [0, 'Usual'], [1, 'Better'], [2, 'Much better']];
+export const LEVEL_LABEL = Object.fromEntries(LEVELS);
+export const levelTone = (v) => (v <= -1 ? 'terra' : v >= 1 ? 'sage' : 'plain');
+export const CONTEXTS = [['none', 'Nothing specific'], ['medicine', 'Medicine'], ['meal', 'A meal'], ['visit', 'A visit'], ['sleep', 'Sleep'], ['outing', 'An outing']];
+const REL = { sleep: { before: 'At bedtime', during: 'In the night', after: 'On waking' }, default: { before: 'Before', during: 'During', after: 'After' } };
+export const relLabel = (ctx, rel) => (REL[ctx] || REL.default)[rel];
+export function contextPhrase(o) {
+  if (!o.context_type || o.context_type === 'none') return 'No particular moment';
+  const what = { medicine: o.medicine_name || 'a medicine', meal: 'a meal', visit: 'a visit', sleep: 'sleep', outing: 'an outing' }[o.context_type];
+  if (o.context_type === 'sleep') return relLabel('sleep', o.context_relation);
+  const mins = o.minutes_offset != null && o.context_relation !== 'during' ? `${o.minutes_offset} min ` : '';
+  const s = `${mins}${o.context_relation} ${what}`;
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+export const KINDS =['behaviour', 'medicine', 'meal', 'visit', 'incident', 'note'];
 
 export const Notice = ({ tone = 'gold', children }) => (
   <div className={`rounded-xl border px-4 py-3 text-sm ${CHIP[tone]}`}>{children}</div>

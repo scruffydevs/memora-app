@@ -74,6 +74,18 @@ for (let d = 0; d < DAYS; d++) {
   if (R() < (changed ? 0.55 : 0.12)) await care(at(d, 18), 'behaviour', changed ? 'Restless and unsure where to go in the evening.' : 'A little low in the evening.', { category: R() < 0.5 ? 'agitation' : 'mood', severity: changed ? 2 + Math.floor(R() * 3) : 1 + Math.floor(R() * 2), trigger: R() < 0.5 ? 'Late afternoon noise' : 'Changed routine', helped: R() < 0.6 ? 'Quiet music' : 'A short walk with Anita' });
   if (changed && R() < 0.3) await care(at(d, 3), 'behaviour', 'Up in the night and tried to leave the house.', { category: 'wandering', severity: 3, trigger: 'Woke disoriented', helped: 'Gentle reminder it was night' });
   if (asks >= 2) await care(at(d, 15), 'behaviour', 'Asked the same question several times.', { category: 'repeated_question', severity: 2, helped: 'Wrote the answer on the whiteboard' });
+
+  // Log arena (synthetic): notes around the evening tablet. Invented values, no real meaning.
+  if (R() < 0.45) {
+    const clamp = (v) => Math.max(-2, Math.min(2, Math.round(v)));
+    const base = changed ? -1 : 0;
+    const obs = async (ts, rel, mins, traits, note) => {
+      const oid = await mk('INSERT INTO observations (patient_id,ts,context_type,context_relation,minutes_offset,medicine_id,note,logged_by) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id', [pid, ts, 'medicine', rel, mins, med, note, 'Caregiver (synthetic)']);
+      for (const [trait, v, detail] of traits) await q('INSERT INTO observation_traits (observation_id,trait,vs_usual,detail) VALUES ($1,$2,$3,$4)', [oid, trait, clamp(v), detail || null]);
+    };
+    await obs(at(d, 19, 40), 'before', 20, [['agitation', base - R() * 1.5, 'Pacing near the door'], ['mood', base + R() - 0.5, null], ['orientation', base - R(), null]], 'Before the evening tablet.');
+    await obs(at(d, 20, 40), 'after', 40, [['agitation', base + 0.6 + R(), 'Settled in the chair'], ['mood', base + 0.4 + R() - 0.3, null], ['sleepiness', R() * 1.2, null]], 'After the evening tablet.');
+  }
 }
 
 await q('UPDATE contacts SET consent_noted=true WHERE id IN ($1,$2)', [anita, ravi]);

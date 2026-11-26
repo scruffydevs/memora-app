@@ -4,12 +4,13 @@ import { Btn, Card, Field } from './ui.jsx';
 import Overview from './views/Overview.jsx';
 import Profile from './views/Profile.jsx';
 import People from './views/People.jsx';
+import Arena from './views/Arena.jsx';
 import Behaviour from './views/Behaviour.jsx';
 import Logs from './views/Logs.jsx';
 import Privacy from './views/Privacy.jsx';
 
 const TABS = [
-  ['overview', 'Overview'], ['profile', 'Profile'], ['people', 'People'],
+  ['overview', 'Overview'], ['arena', 'Log arena'], ['profile', 'Profile'], ['people', 'People'],
   ['behaviour', 'Behaviour'], ['logs', 'Logs'], ['privacy', 'Privacy'],
 ];
 
@@ -61,10 +62,10 @@ export default function App() {
     setNewName(''); setAdding(false); setTab('profile'); await load(p.id);
   };
 
-  const V = { overview: Overview, profile: Profile, people: People, behaviour: Behaviour, logs: Logs, privacy: Privacy }[tab];
+  const V = { overview: Overview, arena: Arena, profile: Profile, people: People, behaviour: Behaviour, logs: Logs, privacy: Privacy }[tab];
 
   return (
-    <div className="max-w-5xl mx-auto px-4 pb-16">
+    <div className="max-w-6xl mx-auto px-4 pb-16">
       <header className="flex flex-wrap items-center gap-3 py-5">
         <div className="mr-auto">
           <div className="font-display text-3xl font-bold leading-none">Memora</div>

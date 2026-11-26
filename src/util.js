@@ -11,4 +11,7 @@ export const toList = (v, max = 30) =>
 export const str = (v, max = 2000) => (v == null ? null : String(v).trim().slice(0, max) || null);
 
 export const BEHAVIOUR_CATEGORIES = ['sleep', 'mood', 'agitation', 'wandering', 'eating', 'confusion', 'repeated_question', 'social', 'other'];
-export const LOG_KINDS = ['behaviour', 'medicine', 'meal', 'visit', 'incident', 'note'];
+export const TRAITS = ['mood', 'alertness', 'orientation', 'memory', 'speech', 'appetite', 'energy', 'agitation', 'anxiety', 'mobility', 'pain', 'sleepiness', 'social'];
+export const CONTEXT_TYPES = ['none', 'medicine', 'meal', 'visit', 'sleep', 'outing'];
+export const RELATIONS = ['before', 'during', 'after'];
+export const LOG_KINDS =['behaviour', 'medicine', 'meal', 'visit', 'incident', 'note'];

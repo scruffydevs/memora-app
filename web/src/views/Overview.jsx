@@ -25,7 +25,7 @@ export default function Overview({ pid, go }) {
               {pr.traits.map((t) => <Chip key={t} tone="gold">{t}</Chip>)}
             </div>
           </div>
-          <div className="flex gap-2"><Btn onClick={() => go('behaviour')}>Log behaviour</Btn><Btn kind="ghost" onClick={() => go('profile')}>Edit profile</Btn></div>
+          <div className="flex gap-2"><Btn onClick={() => go('arena')}>Open log arena</Btn><Btn kind="ghost" onClick={() => go('profile')}>Edit profile</Btn></div>
         </div>
         {pr.background && <p className="mt-5 text-lg leading-relaxed max-w-3xl">{pr.background}</p>}
       </Card>
