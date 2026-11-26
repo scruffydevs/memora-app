@@ -45,6 +45,18 @@ export default function Profile({ pid }) {
       </Card>
 
       <Card className="p-6 space-y-5">
+        <H2 hint="What a new caregiver or a paramedic would need first. Sensitive: kept in the vault, never sent to an AI model.">Care essentials</H2>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Conditions" hint="As told by their doctors or family"><textarea className="input" rows={2} value={f.conditions || ''} onChange={(e) => set('conditions', e.target.value)} /></Field>
+          <Field label="Allergies"><textarea className="input" rows={2} value={f.allergies || ''} onChange={(e) => set('allergies', e.target.value)} /></Field>
+          <Field label="Emergency contact"><input className="input" value={f.emergency_name || ''} onChange={(e) => set('emergency_name', e.target.value)} placeholder="Name and relationship" /></Field>
+          <Field label="Emergency phone"><input className="input" value={f.emergency_phone || ''} onChange={(e) => set('emergency_phone', e.target.value)} inputMode="tel" /></Field>
+          <Field label="Clinician"><input className="input" value={f.clinician_name || ''} onChange={(e) => set('clinician_name', e.target.value)} placeholder="Doctor's name" /></Field>
+          <Field label="Clinic or hospital"><input className="input" value={f.clinic || ''} onChange={(e) => set('clinic', e.target.value)} /></Field>
+        </div>
+      </Card>
+
+      <Card className="p-6 space-y-5">
         <H2 hint="Write it with them where you can. Short and kind is enough.">Who they are</H2>
         <div className="grid gap-4 sm:grid-cols-3">
           <Field label="Name they like to be called"><input className="input" value={f.preferred_name || ''} onChange={(e) => set('preferred_name', e.target.value)} /></Field>

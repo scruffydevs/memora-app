@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { api } from '../api.js';
-import { Card, H2, Notice, Toggle, useAsync } from '../ui.jsx';
+import { Btn, Card, H2, Notice, Toggle, useAsync } from '../ui.jsx';
+import CareTeam from './CareTeam.jsx';
 
-export default function Privacy({ pid }) {
+export default function Privacy({ pid, me, onMeChange }) {
   const prof = useAsync(() => api.get(`/api/patients/${pid}/profile`), [pid]);
   const photos = useAsync(() => api.get(`/api/patients/${pid}/photos`), [pid]);
   const [msg, setMsg] = useState(null);
@@ -28,7 +29,18 @@ export default function Privacy({ pid }) {
           hint="Recorded here as the patient's choice. Sharing with a doctor will have its own switch when the clinician report is built." />
       </Card>
 
-      {!encryptionReady && <Notice tone="terra">Photo storage is switched off on the server (no encryption key is set), so photos cannot be saved yet.</Notice>}
+      <Card className="p-6">
+        <H2 hint="Only these people can open this profile. When a caregiver changes, the history stays with the patient.">Who can see this</H2>
+        <CareTeam pid={pid} />
+        {me?.user.role === 'caregiver' && (
+          <Btn kind="danger" className="mt-4" onClick={async () => {
+            if (!window.confirm('Stop caring for this person in Memora? You will lose access to their profile and logs. What you logged stays with them.')) return;
+            try { onMeChange(await api.post('/api/auth/disconnect', { patientId: pid })); } catch (e) { setMsg({ tone: 'terra', t: e.message }); }
+          }}>Disconnect me from this person</Btn>
+        )}
+      </Card>
+
+      {!encryptionReady &&<Notice tone="terra">Photo storage is switched off on the server (no encryption key is set), so photos cannot be saved yet.</Notice>}
 
       <Card className="p-6">
         <H2>What is stored</H2>

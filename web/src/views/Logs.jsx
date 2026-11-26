@@ -12,8 +12,7 @@ export default function Logs({ pid }) {
     setErr('');
     if (!f.text.trim()) return setErr('Write something first.');
     if (f.kind === 'behaviour') return setErr('Use the Behaviour tab for behaviour, so it keeps its category and strength.');
-    let by = ''; try { by = localStorage.getItem('memora_by') || ''; } catch { /* ignore */ }
-    try { await api.post(`/api/patients/${pid}/logs`, { kind: f.kind, text: f.text, logged_by: by }); setF({ ...f, text: '' }); reload(); }
+    try { await api.post(`/api/patients/${pid}/logs`, { kind: f.kind, text: f.text }); setF({ ...f, text: '' }); reload(); }
     catch (e) { setErr(e.message); }
   };
   const remove = async (id) => { if (window.confirm('Delete this log?')) { await api.del(`/api/logs/${id}`); reload(); } };

@@ -5,7 +5,13 @@ import { answerQuestion } from '../ask.js';
 
 const r = Router();
 
-r.get('/patients', wrap(async (_req, res) => res.json((await q('SELECT id, name FROM patients ORDER BY id')).rows)));
+// Only the patients this user may open: all of them for admins, connected ones for caregivers.
+r.get('/patients', wrap(async (req, res) => {
+  const rows = req.user.role === 'admin'
+    ? (await q('SELECT id, name, patient_code, is_demo FROM patients ORDER BY is_demo, name')).rows
+    : (await q("SELECT p.id, p.name, p.patient_code, p.is_demo FROM patients p JOIN patient_connections c ON c.patient_id = p.id AND c.caregiver_id = $1 AND c.status = 'active' ORDER BY p.name", [req.user.id])).rows;
+  res.json(rows);
+}));
 
 r.get('/entries', wrap(async (req, res) => {
   const limit = Math.min(Number(req.query.limit) || 30, 200);

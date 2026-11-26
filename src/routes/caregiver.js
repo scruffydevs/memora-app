@@ -6,17 +6,19 @@ import { encrypt, decrypt, encryptionReady } from '../crypto.js';
 const r = Router();
 
 // ---------- patients and profile ----------
-r.post('/patients', wrap(async (req, res) => {
-  const name = str(req.body?.name, 120);
-  if (!name) return res.status(400).json({ error: 'name is required' });
-  const p = (await q('INSERT INTO patients (name) VALUES ($1) RETURNING id, name', [name])).rows[0];
-  await q('INSERT INTO patient_profiles (patient_id, preferred_name) VALUES ($1,$2)', [p.id, name.split(' ')[0]]);
-  res.status(201).json(p);
+// Patient accounts are created by the Memora team (admin routes), not here.
+
+// Who has cared for this person, and when. History stays when caregivers change.
+r.get('/patients/:id/care-team', wrap(async (req, res) => {
+  res.json((await q(
+    `SELECT c.id, c.role, c.status, c.connected_at, c.ended_at, c.ended_reason, u.name
+       FROM patient_connections c JOIN users u ON u.id = c.caregiver_id
+      WHERE c.patient_id=$1 ORDER BY (c.status = 'active') DESC, c.connected_at DESC`, [req.params.id])).rows);
 }));
 
 r.get('/patients/:id/profile', wrap(async (req, res) => {
   const id = Number(req.params.id);
-  const p = (await q('SELECT id, name FROM patients WHERE id=$1', [id])).rows[0];
+  const p = (await q('SELECT id, name, patient_code FROM patients WHERE id=$1', [id])).rows[0];
   if (!p) return res.status(404).json({ error: 'not_found' });
   await q('INSERT INTO patient_profiles (patient_id) VALUES ($1) ON CONFLICT DO NOTHING', [id]);
   const prof = (await q('SELECT * FROM patient_profiles WHERE patient_id=$1', [id])).rows[0];
@@ -28,15 +30,19 @@ r.put('/patients/:id/profile', wrap(async (req, res) => {
   const id = Number(req.params.id);
   const b = req.body || {};
   const row = (await q(
-    `INSERT INTO patient_profiles (patient_id, preferred_name, language, age_band, background, traits, likes, dislikes, calming, triggers, communication, routine, consent_photos, consent_caregiver_view, updated_at)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14, now())
+    `INSERT INTO patient_profiles (patient_id, preferred_name, language, age_band, background, traits, likes, dislikes, calming, triggers, communication, routine, consent_photos, consent_caregiver_view,
+                                   conditions, allergies, emergency_name, emergency_phone, clinician_name, clinic, updated_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20, now())
      ON CONFLICT (patient_id) DO UPDATE SET
        preferred_name=EXCLUDED.preferred_name, language=EXCLUDED.language, age_band=EXCLUDED.age_band, background=EXCLUDED.background,
        traits=EXCLUDED.traits, likes=EXCLUDED.likes, dislikes=EXCLUDED.dislikes, calming=EXCLUDED.calming, triggers=EXCLUDED.triggers,
        communication=EXCLUDED.communication, routine=EXCLUDED.routine, consent_photos=EXCLUDED.consent_photos,
-       consent_caregiver_view=EXCLUDED.consent_caregiver_view, updated_at=now()
+       consent_caregiver_view=EXCLUDED.consent_caregiver_view, conditions=EXCLUDED.conditions, allergies=EXCLUDED.allergies,
+       emergency_name=EXCLUDED.emergency_name, emergency_phone=EXCLUDED.emergency_phone, clinician_name=EXCLUDED.clinician_name,
+       clinic=EXCLUDED.clinic, updated_at=now()
      RETURNING *`,
-    [id, str(b.preferred_name, 80), str(b.language, 60), str(b.age_band, 20), str(b.background, 4000), toList(b.traits), toList(b.likes), toList(b.dislikes), toList(b.calming), toList(b.triggers), str(b.communication, 2000), str(b.routine, 3000), Boolean(b.consent_photos), b.consent_caregiver_view !== false],
+    [id, str(b.preferred_name, 80), str(b.language, 60), str(b.age_band, 20), str(b.background, 4000), toList(b.traits), toList(b.likes), toList(b.dislikes), toList(b.calming), toList(b.triggers), str(b.communication, 2000), str(b.routine, 3000), Boolean(b.consent_photos), b.consent_caregiver_view !== false,
+      str(b.conditions, 1500), str(b.allergies, 600), str(b.emergency_name, 120), str(b.emergency_phone, 40), str(b.clinician_name, 120), str(b.clinic, 160)],
   )).rows[0];
   // Withdrawing photo consent removes stored photos.
   if (!row.consent_photos) await q('DELETE FROM photos WHERE patient_id=$1', [id]);
@@ -96,9 +102,10 @@ r.post('/patients/:id/logs', wrap(async (req, res) => {
     if (!category || !(severity >= 1 && severity <= 5)) return res.status(400).json({ error: 'behaviour logs need a category and a severity from 1 to 5' });
   }
   res.status(201).json((await q(
-    `INSERT INTO care_logs (patient_id, ts, kind, category, severity, trigger_text, helped, text, logged_by)
-     VALUES ($1, COALESCE($2::timestamptz, now()), $3,$4,$5,$6,$7,$8,$9) RETURNING *`,
-    [req.params.id, b.ts || null, kind, category, severity, str(b.trigger_text, 300), str(b.helped, 300), text, str(b.logged_by, 80)])).rows[0]);
+    `INSERT INTO care_logs (patient_id, ts, kind, category, severity, trigger_text, helped, text, logged_by, author_id)
+     VALUES ($1, COALESCE($2::timestamptz, now()), $3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
+    // The author is always the signed-in caregiver, never typed in by the client.
+    [req.params.id, b.ts || null, kind, category, severity, str(b.trigger_text, 300), str(b.helped, 300), text, req.user.name, req.user.id])).rows[0]);
 }));
 
 r.delete('/logs/:id', wrap(async (req, res) => { await q('DELETE FROM care_logs WHERE id=$1', [req.params.id]); res.status(204).end(); }));

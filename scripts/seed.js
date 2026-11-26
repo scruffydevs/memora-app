@@ -17,7 +17,7 @@ const norm = (m, s) => m + s * (R() + R() + R() - 1.5) * 1.6;
 
 await runMigrations();
 await q('DELETE FROM patients WHERE name=$1', [NAME]);
-const pid = (await q('INSERT INTO patients (name) VALUES ($1) RETURNING id', [NAME])).rows[0].id;
+const pid = (await q("INSERT INTO patients (name, patient_code, is_demo) VALUES ($1, 'DEMO-0001', true) RETURNING id", [NAME])).rows[0].id;
 
 const mk = async (sql, p) => (await q(sql, p)).rows[0].id;
 const anita = await mk("INSERT INTO contacts (patient_id,name,relationship,mention,enrolled) VALUES ($1,'Anita Rao','daughter','Ask about her new job',true) RETURNING id", [pid]);
@@ -90,8 +90,10 @@ for (let d = 0; d < DAYS; d++) {
 
 await q('UPDATE contacts SET consent_noted=true WHERE id IN ($1,$2)', [anita, ravi]);
 await q(
-  `INSERT INTO patient_profiles (patient_id, preferred_name, language, age_band, background, traits, likes, dislikes, calming, triggers, communication, routine, consent_photos)
-   VALUES ($1,'Demo','English and Kannada','70s',$2,$3,$4,$5,$6,$7,$8,$9,false)
+  `INSERT INTO patient_profiles (patient_id, preferred_name, language, age_band, background, traits, likes, dislikes, calming, triggers, communication, routine, consent_photos,
+                                 conditions, allergies, emergency_name, emergency_phone, clinician_name, clinic)
+   VALUES ($1,'Demo','English and Kannada','70s',$2,$3,$4,$5,$6,$7,$8,$9,false,
+           'Early-stage Alzheimer''s, as told by the family (synthetic).','None known (synthetic).','Anita Rao (daughter, synthetic)','+00 0000 000000','Dr. Meera Iyer (synthetic)','City Memory Clinic (synthetic)')
    ON CONFLICT (patient_id) DO NOTHING`,
   [pid,
    'Retired teacher (synthetic persona). Lives at home with regular visits from family. Proud of a long career and still enjoys explaining things.',

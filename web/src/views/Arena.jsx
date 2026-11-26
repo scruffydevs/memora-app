@@ -51,8 +51,7 @@ export default function Arena({ pid }) {
   const [filter, setFilter] = useState('');
   const list = useAsync(() => api.get(`/api/patients/${pid}/observations?limit=60${filter ? `&context=${filter}` : ''}`), [pid, filter]);
   const [key, setKey] = useState(0);
-  const [by] = useState(() => { try { return localStorage.getItem('memora_by') || ''; } catch { return ''; } });
-  const [f, setF] = useState({ ts: localNow(), ctx: 'none', rel: 'before', mins: '', medicine_id: '', traits: {}, note: '', by });
+  const [f, setF] = useState({ ts: localNow(), ctx: 'none', rel: 'before', mins: '', medicine_id: '', traits: {}, note: '' });
   const [err, setErr] = useState('');
   const [ok, setOk] = useState('');
   const [newMed, setNewMed] = useState({ name: '', dose: '' });
@@ -65,12 +64,11 @@ export default function Arena({ pid }) {
     setErr(''); setOk('');
     if (picked.some((t) => f.traits[t].v === null)) return setErr('Choose a level for each characteristic you picked.');
     if (!picked.length && !f.note.trim()) return setErr('Pick at least one characteristic, or write a note.');
-    try { localStorage.setItem('memora_by', f.by); } catch { /* ignore */ }
     try {
       await api.post(`/api/patients/${pid}/observations`, {
         ts: f.ts ? new Date(f.ts).toISOString() : undefined, context_type: f.ctx, context_relation: f.ctx === 'none' ? null : f.rel,
         minutes_offset: f.ctx === 'none' || f.rel === 'during' || f.ctx === 'sleep' ? null : f.mins, medicine_id: f.ctx === 'medicine' && f.medicine_id ? Number(f.medicine_id) : null,
-        note: f.note, logged_by: f.by, traits: picked.map((t) => ({ trait: t, vs_usual: f.traits[t].v, detail: f.traits[t].detail })),
+        note: f.note, traits: picked.map((t) => ({ trait: t, vs_usual: f.traits[t].v, detail: f.traits[t].detail })),
       });
       setF((s) => ({ ...s, ts: localNow(), traits: {}, note: '', mins: '' }));
       setOk('Saved to the log.'); list.reload(); setKey((k) => k + 1);
@@ -166,7 +164,7 @@ export default function Arena({ pid }) {
 
           <section className="space-y-3">
             <Field label="Anything else?"><textarea className="input" rows={3} value={f.note} onChange={(e) => set('note', e.target.value)} placeholder="In your own words" /></Field>
-            <Field label="Logged by"><input className="input sm:!w-72" value={f.by} onChange={(e) => set('by', e.target.value)} placeholder="Your name" /></Field>
+            <p className="text-xs text-muted">This entry is saved under your name, so the next caregiver knows who wrote it.</p>
             {err && <Notice tone="terra">{err}</Notice>}
             {ok && <Notice tone="sage">{ok}</Notice>}
             <Btn onClick={save}>Save to the log</Btn>

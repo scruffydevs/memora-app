@@ -34,7 +34,7 @@ const SEV = ['Mild', 'Noticeable', 'Upsetting', 'Hard', 'Severe'];
 
 export default function Behaviour({ pid }) {
   const logs = useAsync(() => api.get(`/api/patients/${pid}/logs?kind=behaviour&limit=30`), [pid]);
-  const [f, setF] = useState({ category: 'mood', severity: 2, text: '', trigger_text: '', helped: '', ts: '', logged_by: (() => { try { return localStorage.getItem('memora_by') || ''; } catch { return ''; } })() });
+  const [f, setF] = useState({ category: 'mood', severity: 2, text: '', trigger_text: '', helped: '', ts: '' });
   const [err, setErr] = useState('');
   const [summaryKey, setSummaryKey] = useState(0);
   const set = (k, v) => setF((s) => ({ ...s, [k]: v }));
@@ -43,7 +43,6 @@ export default function Behaviour({ pid }) {
     setErr('');
     if (!f.text.trim()) return setErr('Describe what you saw.');
     try {
-      try { localStorage.setItem('memora_by', f.logged_by); } catch { /* ignore */ }
       await api.post(`/api/patients/${pid}/logs`, { ...f, kind: 'behaviour', ts: f.ts ? new Date(f.ts).toISOString() : undefined });
       setF((s) => ({ ...s, text: '', trigger_text: '', helped: '', ts: '' }));
       logs.reload(); setSummaryKey((k) => k + 1);
@@ -80,7 +79,7 @@ export default function Behaviour({ pid }) {
               <Field label="What seemed to set it off?"><input className="input" value={f.trigger_text} onChange={(e) => set('trigger_text', e.target.value)} placeholder="Optional" /></Field>
               <Field label="What helped?"><input className="input" value={f.helped} onChange={(e) => set('helped', e.target.value)} placeholder="Optional" /></Field>
               <Field label="When?" hint="Leave empty for now"><input className="input" type="datetime-local" value={f.ts} onChange={(e) => set('ts', e.target.value)} /></Field>
-              <Field label="Logged by"><input className="input" value={f.logged_by} onChange={(e) => set('logged_by', e.target.value)} placeholder="Your name" /></Field>
+              <p className="text-xs text-muted self-end pb-2">Saved under your name.</p>
             </div>
             {err && <Notice tone="terra">{err}</Notice>}
             <Btn onClick={save}>Save to behaviour log</Btn>

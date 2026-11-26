@@ -2,6 +2,11 @@ import React from 'react';
 import { api } from '../api.js';
 import { Avatar, Btn, Card, Chip, Chips, H2, Notice, LABELS, dateTime, useAsync } from '../ui.jsx';
 import { BehaviourSummary } from './Behaviour.jsx';
+import CareTeam from './CareTeam.jsx';
+
+const Fact = ({ label, children }) => (
+  <div><p className="label">{label}</p><p className={children ? '' : 'text-muted text-sm'}>{children || 'Not added yet'}</p></div>
+);
 
 export default function Overview({ pid, go }) {
   const p = useAsync(() => api.get(`/api/patients/${pid}/profile`), [pid]);
@@ -28,6 +33,16 @@ export default function Overview({ pid, go }) {
           <div className="flex gap-2"><Btn onClick={() => go('arena')}>Open log arena</Btn><Btn kind="ghost" onClick={() => go('profile')}>Edit profile</Btn></div>
         </div>
         {pr.background && <p className="mt-5 text-lg leading-relaxed max-w-3xl">{pr.background}</p>}
+      </Card>
+
+      <Card className="p-5 border-terra/30">
+        <H2 hint="Sensitive. Kept in the vault and never sent to an AI model.">Care essentials</H2>
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          <Fact label="Conditions">{pr.conditions}</Fact>
+          <Fact label="Allergies">{pr.allergies}</Fact>
+          <Fact label="Emergency contact">{pr.emergency_name ? `${pr.emergency_name}${pr.emergency_phone ? ` · ${pr.emergency_phone}` : ''}` : null}</Fact>
+          <Fact label="Clinician">{pr.clinician_name ? `${pr.clinician_name}${pr.clinic ? `, ${pr.clinic}` : ''}` : null}</Fact>
+        </div>
       </Card>
 
       {empty && <Notice tone="gold">The profile is mostly empty. The more you add about who they are and what helps, the more useful this page becomes. <button className="font-bold underline" onClick={() => go('profile')}>Start the profile</button></Notice>}
@@ -63,6 +78,8 @@ export default function Overview({ pid, go }) {
           <Btn kind="ghost" className="mt-3" onClick={() => go('logs')}>See all logs</Btn>
         </Card>
       </div>
+
+      <Card className="p-5"><H2 hint="Everything logged stays with the patient when caregivers change.">Care team</H2><CareTeam pid={pid} /></Card>
     </div>
   );
 }

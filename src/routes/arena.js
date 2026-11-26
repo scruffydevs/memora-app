@@ -48,9 +48,9 @@ r.post('/patients/:id/observations', wrap(async (req, res) => {
   try {
     await client.query('BEGIN');
     const o = (await client.query(
-      `INSERT INTO observations (patient_id, ts, context_type, context_relation, minutes_offset, medicine_id, note, logged_by)
-       VALUES ($1, COALESCE($2::timestamptz, now()), $3,$4,$5,$6,$7,$8) RETURNING id`,
-      [patientId, b.ts || null, ctx, rel, mins, medicineId, note, str(b.logged_by, 80)])).rows[0];
+      `INSERT INTO observations (patient_id, ts, context_type, context_relation, minutes_offset, medicine_id, note, logged_by, author_id)
+       VALUES ($1, COALESCE($2::timestamptz, now()), $3,$4,$5,$6,$7,$8,$9) RETURNING id`,
+      [patientId, b.ts || null, ctx, rel, mins, medicineId, note, req.user.name, req.user.id])).rows[0];
     for (const t of traits) await client.query('INSERT INTO observation_traits (observation_id, trait, vs_usual, detail) VALUES ($1,$2,$3,$4)', [o.id, t.trait, t.vs_usual, t.detail]);
     await client.query('COMMIT');
     res.status(201).json({ id: o.id });
