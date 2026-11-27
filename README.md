@@ -14,6 +14,21 @@ Memora: an adaptive memory layer for early-stage Alzheimer's. This repo is the w
 
 The split is enforced by the server, not just hidden in the interface.
 
+## Memory engine (Memora Core, milestone 1)
+
+Our own memory engine, in `src/memory/`. It turns what the app already holds into small, dated, sourced **memories** about one patient, and finds them again. No AI model is involved yet: fixed rules do the work.
+
+- **A memory** has a kind, a plain-words text, a validity period (`valid_from`, `valid_to`), a privacy tier, a confidence, and at least one **source** (patient file, log arena, care log, or a stated reason). A memory with no source is refused.
+- **Versioning:** a changed fact supersedes the old memory. The old one is closed, not erased, so `asOf` can answer "what was true then".
+- **Forgetting:** retracting a memory blanks the words of every version and removes its sources. Only a note that it was retracted remains. Deleting a log or observation forgets what was derived from it.
+- **Tiers:** 0 is the strictest (never sent to an AI model), 1 is masked, 2 is as written. A memory takes the strictest tier among its sources. Search for model use (`forModel`) never returns Tier 0.
+- **Derivation:** profile fields, log arena observations and care logs become memories when saved. `POST /api/patients/:id/memories/rebuild` repairs or backfills and is safe to repeat.
+- **API:** `GET /api/patients/:id/memories` (filters `q`, `kind`, `status`, `asOf`), `POST .../memories/search`, `GET /api/memories/:id/history`. The team can add, edit (a new version) and retract. Caregivers can read.
+- **Admin:** the **Memory** tab shows each memory, its tier and sources, its history, and lets the team correct or forget it.
+- **Switch off:** `MEMORY_ENGINE=off` stops derivation. Saves still work.
+
+Not built yet: free-text extraction with a local model, embeddings and hybrid ranking, feedback, and using memories in Ask Memora. Those are the later milestones in the plan.
+
 ## Live data
 
 The **Live** tab shows near-real-time readings from three kinds of source:

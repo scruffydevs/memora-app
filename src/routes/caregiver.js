@@ -3,6 +3,7 @@ import { q } from '../db.js';
 import { wrap, toList, str, BEHAVIOUR_CATEGORIES, LOG_KINDS } from '../util.js';
 import { encrypt, decrypt, encryptionReady } from '../crypto.js';
 import { requireAdmin } from '../auth.js';
+import { engine } from '../memory/engine.js';
 
 // Profiling (the patient file, people, consent, photos) is done by the Memora team. Caregivers read it and log.
 
@@ -54,6 +55,7 @@ r.put('/patients/:id/profile', requireAdmin, wrap(async (req, res) => {
   }
   // Withdrawing photo consent removes stored photos.
   if (!row.consent_photos) await q('DELETE FROM photos WHERE patient_id=$1', [id]);
+  await engine.onProfileSaved(id, req.user.name); // keep the memory engine in step with the patient file
   res.json(row);
 }));
 
@@ -109,14 +111,17 @@ r.post('/patients/:id/logs', wrap(async (req, res) => {
     severity = Number(b.severity);
     if (!category || !(severity >= 1 && severity <= 5)) return res.status(400).json({ error: 'behaviour logs need a category and a severity from 1 to 5' });
   }
-  res.status(201).json((await q(
+  const log = (await q(
     `INSERT INTO care_logs (patient_id, ts, kind, category, severity, trigger_text, helped, text, logged_by, author_id)
      VALUES ($1, COALESCE($2::timestamptz, now()), $3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
     // The author is always the signed-in caregiver, never typed in by the client.
-    [req.params.id, b.ts || null, kind, category, severity, str(b.trigger_text, 300), str(b.helped, 300), text, req.user.name, req.user.id])).rows[0]);
+    [req.params.id, b.ts || null, kind, category, severity, str(b.trigger_text, 300), str(b.helped, 300), text, req.user.name, req.user.id])).rows[0];
+  await engine.onCareLogSaved(log.id, req.user.name);
+  res.status(201).json(log);
 }));
 
-r.delete('/logs/:id', wrap(async (req, res) => { await q('DELETE FROM care_logs WHERE id=$1', [req.params.id]); res.status(204).end(); }));
+// Deleting a log also forgets what the memory engine derived from it.
+r.delete('/logs/:id', wrap(async (req, res) => { await engine.retractBySource('care_logs', Number(req.params.id), req.user.name); await q('DELETE FROM care_logs WHERE id=$1', [req.params.id]); res.status(204).end(); }));
 
 // Descriptive only: counts this 28 days against the previous 28. No scores, no diagnosis, no forecast.
 r.get('/patients/:id/behaviour-summary', wrap(async (req, res) => {

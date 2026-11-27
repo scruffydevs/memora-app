@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { q, pool } from '../db.js';
 import { wrap, str, TRAITS, CONTEXT_TYPES, RELATIONS } from '../util.js';
 import { requireAdmin } from '../auth.js';
+import { engine } from '../memory/engine.js';
 
 const r = Router();
 
@@ -54,6 +55,7 @@ r.post('/patients/:id/observations', wrap(async (req, res) => {
       [patientId, b.ts || null, ctx, rel, mins, medicineId, note, req.user.name, req.user.id])).rows[0];
     for (const t of traits) await client.query('INSERT INTO observation_traits (observation_id, trait, vs_usual, detail) VALUES ($1,$2,$3,$4)', [o.id, t.trait, t.vs_usual, t.detail]);
     await client.query('COMMIT');
+    await engine.onObservationSaved(o.id, req.user.name);
     res.status(201).json({ id: o.id });
   } catch (e) { await client.query('ROLLBACK'); throw e; } finally { client.release(); }
 }));
@@ -71,7 +73,8 @@ r.get('/patients/:id/observations', wrap(async (req, res) => {
       GROUP BY o.id, m.name ORDER BY o.ts DESC LIMIT $3`, [req.params.id, ctx, limit])).rows);
 }));
 
-r.delete('/observations/:id', wrap(async (req, res) => { await q('DELETE FROM observations WHERE id=$1', [req.params.id]); res.status(204).end(); }));
+// Deleting an observation also forgets what the memory engine derived from it.
+r.delete('/observations/:id', wrap(async (req, res) => { await engine.retractBySource('observations', Number(req.params.id), req.user.name); await q('DELETE FROM observations WHERE id=$1', [req.params.id]); res.status(204).end(); }));
 
 // Descriptive only: average rating (against usual) of each characteristic noted BEFORE a medicine vs AFTER one, last 60 days.
 // It reports what was written down. It says nothing about cause.

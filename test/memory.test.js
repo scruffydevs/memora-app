@@ -1,0 +1,236 @@
+// Memora Core, milestone 1: derivation, versioning, retrieval, forgetting, tiers, provenance and access.
+// Run: npm test  (uses an in-memory Postgres, no server needed)
+import { test, before, after } from 'node:test';
+import assert from 'node:assert/strict';
+
+process.env.DB_DRIVER = 'pglite';
+process.env.ADMIN_EMAIL = 'admin@memora.test';
+process.env.ADMIN_PASSWORD = 'correct horse battery';
+
+const { pool } = await import('../src/db.js');
+const { runMigrations } = await import('../src/migrate.js');
+const { bootstrapAdmin } = await import('../src/bootstrap.js');
+const { createApp } = await import('../src/app.js');
+const { resetRateLimits } = await import('../src/auth.js');
+const { inheritTier, validateMemory, MemoryError } = await import('../src/memory/model.js');
+
+let server; let base;
+before(async () => {
+  await runMigrations(); await bootstrapAdmin();
+  server = createApp().listen(0);
+  base = `http://127.0.0.1:${server.address().port}`;
+});
+after(async () => { server.close(); await pool.end(); });
+
+const client = () => {
+  let cookie = '';
+  return async (method, path, body) => {
+    const r = await fetch(base + path, { method, headers: { 'content-type': 'application/json', ...(cookie ? { cookie } : {}) }, body: body === undefined ? undefined : JSON.stringify(body) });
+    const sc = r.headers.get('set-cookie'); if (sc) { const c = sc.split(';')[0]; cookie = c.endsWith('=') ? '' : c; }
+    const text = await r.text(); let json = null; try { json = JSON.parse(text); } catch { /* not json */ }
+    return { status: r.status, json };
+  };
+};
+const admin = client(); const alice = client(); const bob = client(); const anon = client();
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+let P; let P2;
+const url = (p, id = P.id) => `/api/patients/${id}${p}`;
+const list = async (qs = '') => {
+  const r = await admin('GET', url(`/memories${qs}`));
+  assert.ok(Array.isArray(r.json), `GET /memories${qs} returned ${r.status} ${JSON.stringify(r.json)}`);
+  return r.json;
+};
+const texts = (rows) => rows.map((m) => m.text);
+const profile = async (patch) => { const cur = (await admin('GET', url('/profile'))).json.profile; return admin('PUT', url('/profile'), { ...cur, ...patch }); };
+
+test('setup: a patient, a connected caregiver, and a profile', async () => {
+  resetRateLimits();
+  await admin('POST', '/api/auth/login', { email: 'admin@memora.test', password: 'correct horse battery' });
+  P = (await admin('POST', '/api/admin/patients', { name: 'Test Patient' })).json;
+  P2 = (await admin('POST', '/api/admin/patients', { name: 'Other Patient' })).json;
+  await alice('POST', '/api/auth/signup', { name: 'Alice', email: 'alice@x.test', password: 'alice long password' });
+  const code = (await admin('POST', `/api/admin/patients/${P.id}/codes`, {})).json.code;
+  assert.equal((await alice('POST', '/api/auth/connect', { code })).status, 200);
+  await bob('POST', '/api/auth/signup', { name: 'Bob', email: 'bob@x.test', password: 'bob long password!' });
+
+  const r = await profile({ likes: ['old film songs'], calming: ['quiet music'], triggers: ['loud television'], routine: 'Tea at four', conditions: 'Early-stage Alzheimer\'s (synthetic)', allergies: 'None known', emergency_name: 'Anita, daughter', emergency_phone: '+00 000', background: 'Retired teacher' });
+  assert.equal(r.status, 200);
+});
+
+test('the profile derives memories with the right kind, tier and sources', async () => {
+  const all = await list();
+  const by = (p) => all.filter((m) => m.predicate === p);
+  assert.equal(by('likes')[0].text, 'Likes old film songs');
+  assert.equal(by('likes')[0].tier, 1);
+  assert.equal(by('calming')[0].kind, 'preference');
+  assert.equal(by('routine')[0].kind, 'routine');
+  for (const p of ['condition', 'allergy', 'emergency_contact', 'preferred_name']) assert.equal(by(p)[0].tier, 0, `${p} is Tier 0`);
+  for (const m of all) assert.ok(m.sources.length >= 1 && m.sources[0].table === 'profile', 'every memory has a source');
+  assert.ok(all.every((m) => m.status === 'active' && m.valid_to === null));
+});
+
+test('rebuild is idempotent: running it twice creates nothing new', async () => {
+  const before = (await list('?status=all')).length;
+  const one = (await admin('POST', url('/memories/rebuild'), {})).json;
+  const two = (await admin('POST', url('/memories/rebuild'), {})).json;
+  assert.deepEqual([one.created, two.created], [0, 0]);
+  assert.equal((await list('?status=all')).length, before);
+});
+
+test('changing a profile value supersedes the old memory and keeps history, and asOf answers about the past', async () => {
+  await sleep(30);
+  const beforeChange = new Date().toISOString();
+  await sleep(30);
+  await profile({ calming: ['a short walk'], routine: 'Tea at five' });
+  const active = await list();
+  assert.ok(texts(active).includes('What helps calm them: a short walk'));
+  assert.ok(!texts(active).includes('What helps calm them: quiet music'));
+  assert.ok(texts(active).includes('A usual day: Tea at five'));
+
+  const all = await list('?status=superseded');
+  const oldCalm = all.find((m) => m.text === 'What helps calm them: quiet music');
+  assert.equal(oldCalm.status, 'superseded');
+  assert.ok(oldCalm.valid_to, 'the old version is closed, not erased');
+
+  // the single-valued routine was REPLACED: the new version points back at the old one
+  const newRoutine = active.find((m) => m.predicate === 'routine');
+  const oldRoutine = all.find((m) => m.predicate === 'routine');
+  assert.equal(String(newRoutine.supersedes_id), String(oldRoutine.id));
+
+  const past = (await admin('GET', url(`/memories?asOf=${encodeURIComponent(beforeChange)}`))).json;
+  assert.ok(texts(past).includes('What helps calm them: quiet music') && texts(past).includes('A usual day: Tea at four'));
+  assert.ok(!texts(past).includes('What helps calm them: a short walk'));
+  const nowAs = (await admin('GET', url(`/memories?asOf=${encodeURIComponent(new Date().toISOString())}`))).json;
+  assert.ok(texts(nowAs).includes('A usual day: Tea at five') && !texts(nowAs).includes('A usual day: Tea at four'));
+
+  const hist = (await admin('GET', `/api/memories/${newRoutine.id}/history`)).json;
+  assert.equal(hist.versions.length, 2);
+  assert.deepEqual(hist.events.map((e) => e.action), ['created', 'superseded', 'created']);
+});
+
+test('log arena observations and care logs become memories with sources, and deleting them forgets', async () => {
+  const med = (await admin('POST', url('/medicines'), { name: 'Evening tablet', dose: '1' })).json;
+  const o = await alice('POST', url('/observations'), { context_type: 'medicine', context_relation: 'after', minutes_offset: 30, medicine_id: med.id, note: 'Quiet evening', traits: [{ trait: 'agitation', vs_usual: 1, detail: 'settled in the chair' }, { trait: 'mood', vs_usual: 0 }] });
+  assert.equal(o.status, 201);
+  const obsMems = (await list()).filter((m) => m.sources.some((s) => s.table === 'observations' && String(s.id) === String(o.json.id)));
+  assert.equal(obsMems.length, 3); // two traits and the note
+  const agit = obsMems.find((m) => /Agitation/.test(m.text));
+  assert.match(agit.text, /better than usual, 30 min after Evening tablet/);
+  assert.equal(agit.tier, 1);
+  assert.equal(agit.created_by, 'Alice');
+
+  const log = await alice('POST', url('/logs'), { kind: 'behaviour', category: 'agitation', severity: 3, trigger_text: 'late afternoon noise', helped: 'quiet music', text: 'Restless near the door' });
+  assert.equal(log.status, 201);
+  const logMems = (await list()).filter((m) => m.sources.some((s) => s.table === 'care_logs' && String(s.id) === String(log.json.id)));
+  assert.equal(logMems.length, 1);
+  assert.match(logMems[0].text, /strength 3 of 5.*late afternoon noise.*quiet music/);
+
+  assert.equal((await alice('DELETE', `/api/observations/${o.json.id}`)).status, 204);
+  assert.equal((await alice('DELETE', `/api/logs/${log.json.id}`)).status, 204);
+  const left = (await list()).filter((m) => m.sources.some((s) => ['observations', 'care_logs'].includes(s.table)));
+  assert.equal(left.length, 0, 'deleting a record forgets what was derived from it');
+});
+
+test('retract blanks every version, removes sources, and leaves no trace of the words', async () => {
+  const phrase = 'zebra-unique-phrase-9137';
+  const added = await admin('POST', url('/memories'), { kind: 'fact', predicate: 'manual', text: `Likes the ${phrase}`, tier: 1, reason: 'told by the family' });
+  assert.equal(added.status, 201);
+  const v2 = await admin('PUT', `/api/memories/${added.json.id}`, { text: `Now prefers the ${phrase} on Sundays` });
+  assert.equal(v2.status, 200);
+  assert.equal((await admin('POST', url('/memories/search'), { query: phrase })).json.length, 1); // current version found
+
+  assert.equal((await admin('DELETE', `/api/memories/${v2.json.id}`)).status, 204); // retract the newest; the older version goes too
+  assert.equal((await admin('POST', url('/memories/search'), { query: phrase })).json.length, 0);
+  assert.equal((await list('?status=all')).filter((m) => m.text.includes(phrase)).length, 0);
+  for (const t of ['memories', 'memory_sources', 'memory_events']) {
+    const rows = (await pool.query(`SELECT * FROM ${t}`)).rows;
+    assert.ok(!JSON.stringify(rows).includes(phrase), `${t} holds no trace of the retracted words`);
+  }
+  const events = (await pool.query("SELECT action FROM memory_events WHERE memory_id IN ($1,$2)", [added.json.id, v2.json.id])).rows.map((r) => r.action);
+  assert.ok(events.includes('retracted'), 'only the fact that it was retracted remains');
+  assert.equal((await admin('DELETE', `/api/memories/${v2.json.id}`)).status, 204); // retracting again is harmless
+});
+
+test('Tier 0 memories are never returned for a model, and tiers never get less strict', async () => {
+  const { search } = await import('../src/memory/retrieve.js');
+  const human = await search(P.id, { query: '', limit: 200 });
+  assert.ok(human.some((m) => m.tier === 0), 'people can see Tier 0 in the app');
+  const model = await search(P.id, { query: '', limit: 200, forModel: true });
+  assert.ok(model.length > 0 && model.every((m) => m.tier !== 0), 'model-bound search never returns Tier 0');
+  assert.ok(!texts(model).some((t) => /Alzheimer|Allergies|Anita, daughter/.test(t)));
+
+  // 0 is the strictest. A memory takes the strictest tier among what it asks for and where it came from.
+  assert.equal(inheritTier(1, [{ tier: 0 }, { tier: 1 }]), 0);
+  assert.equal(inheritTier(2, [{ tier: 1 }]), 1, 'cannot be looser than its source');
+  assert.equal(inheritTier(0, [{ tier: 1 }]), 0, 'a person may make it stricter');
+  assert.equal(inheritTier(2, [{ tier: 2 }, { tier: 1 }]), 1);
+  assert.equal(inheritTier(1, []), 1);
+
+  // editing cannot loosen a memory below its source: the allergy source is Tier 0, asking for 2 stays 0
+  const allergy = (await list()).find((m) => m.predicate === 'allergy');
+  assert.equal(allergy.tier, 0);
+  const edited = await admin('PUT', `/api/memories/${allergy.id}`, { text: 'Allergies: none known (checked)', tier: 2 });
+  assert.equal(edited.status, 200);
+  assert.equal(edited.json.tier, 0, 'still Tier 0');
+  assert.ok(!texts((await search(P.id, { query: 'allergies', forModel: true }))).some((t) => /Allergies/.test(t)), 'and still hidden from the model');
+  // a Tier 1 memory made stricter by the team becomes Tier 0 and disappears from model-bound search
+  const like = (await list()).find((m) => m.predicate === 'likes');
+  assert.equal((await admin('PUT', `/api/memories/${like.id}`, { tier: 0 })).json.tier, 0);
+  assert.ok(!(await search(P.id, { query: 'film songs', forModel: true })).length);
+});
+
+test('provenance is mandatory and bad input is refused', async () => {
+  assert.equal((await admin('POST', url('/memories'), { kind: 'fact', predicate: 'manual', text: 'no reason given', tier: 1 })).status, 400);
+  assert.equal((await admin('POST', url('/memories'), { kind: 'nope', predicate: 'manual', text: 'x', reason: 'r' })).status, 400);
+  assert.equal((await admin('POST', url('/memories'), { kind: 'fact', predicate: 'Bad Predicate!', text: 'x', reason: 'r' })).status, 400);
+  assert.equal((await admin('POST', url('/memories'), { kind: 'fact', predicate: 'manual', text: '', reason: 'r' })).status, 400);
+  assert.equal((await admin('POST', url('/memories'), { kind: 'fact', predicate: 'manual', text: 'x', tier: 7, reason: 'r' })).status, 400);
+  assert.throws(() => validateMemory({ patientId: 1, kind: 'fact', predicate: 'manual', text: 'x', createdBy: 'a', sources: [] }), (e) => e instanceof MemoryError && e.code === 'sources_required');
+  // a stored memory always resolves to a real source record
+  const all = await list();
+  const prof = (await admin('GET', url('/profile'))).json.profile;
+  for (const m of all.filter((x) => x.sources[0].table === 'profile')) assert.equal(String(m.sources[0].id), String(prof.patient_id));
+});
+
+test('search finds relevant memories', async () => {
+  const hit = (await alice('POST', url('/memories/search'), { query: 'what calms them down' })).json;
+  assert.ok(hit.length >= 1 && /calm/i.test(hit[0].text));
+  const none = (await alice('POST', url('/memories/search'), { query: 'zzzz qqqq' })).json;
+  assert.deepEqual(none, []);
+});
+
+test('access: caregivers read their patient only; only the team writes; strangers and anonymous are refused', async () => {
+  const any = (await list())[0];
+  // connected caregiver: can list, search, read history
+  assert.equal((await alice('GET', url('/memories'))).status, 200);
+  assert.equal((await alice('POST', url('/memories/search'), { query: 'likes' })).status, 200);
+  assert.equal((await alice('GET', `/api/memories/${any.id}/history`)).status, 200);
+  // ...but cannot write
+  assert.equal((await alice('POST', url('/memories'), { kind: 'fact', predicate: 'manual', text: 'x', reason: 'r' })).status, 403);
+  assert.equal((await alice('PUT', `/api/memories/${any.id}`, { text: 'hacked' })).status, 403);
+  assert.equal((await alice('DELETE', `/api/memories/${any.id}`)).status, 403);
+  assert.equal((await alice('POST', url('/memories/rebuild'), {})).status, 403);
+  // not connected: nothing at all
+  assert.equal((await bob('GET', url('/memories'))).status, 403);
+  assert.equal((await bob('POST', url('/memories/search'), { query: 'x' })).status, 403);
+  assert.equal((await bob('GET', `/api/memories/${any.id}/history`)).status, 403);
+  assert.equal((await bob('PUT', `/api/memories/${any.id}`, { text: 'x' })).status, 403);
+  // another patient's memories
+  await admin('PUT', url('/profile', P2.id), { ...(await admin('GET', url('/profile', P2.id))).json.profile, likes: ['secret hobby'] });
+  assert.equal((await alice('GET', url('/memories', P2.id))).status, 403);
+  assert.ok((await admin('GET', url('/memories', P2.id))).json.some((m) => /secret hobby/.test(m.text)));
+  assert.ok(!texts(await list()).some((t) => /secret hobby/.test(t)), 'memories never mix between patients');
+  // anonymous
+  assert.equal((await anon('GET', url('/memories'))).status, 401);
+});
+
+test('the engine can be switched off, and a profile save still works', async () => {
+  process.env.MEMORY_ENGINE = 'off';
+  const before = (await list('?status=all')).length;
+  assert.equal((await profile({ likes: ['gardening'] })).status, 200);
+  assert.equal((await list('?status=all')).length, before, 'no memories were derived while switched off');
+  delete process.env.MEMORY_ENGINE;
+  const out = (await admin('POST', url('/memories/rebuild'), {})).json; // rebuild repairs the gap
+  assert.ok(out.created >= 1);
+  assert.ok(texts(await list()).includes('Likes gardening'));
+});
