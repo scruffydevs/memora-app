@@ -53,23 +53,14 @@ export default function Privacy({ pid, me, onMeChange, editable = false }) {
         )}
       </Card>
 
-      {!encryptionReady &&<Notice tone="terra">Photo storage is switched off on the server (no encryption key is set), so photos cannot be saved yet.</Notice>}
+      {editable && !encryptionReady && <Notice tone="gold">Setup: photo storage needs an encryption key on the server before photos can be saved.</Notice>}
 
       <Card className="p-6">
         <H2>What is stored</H2>
         <ul className="space-y-2 list-disc pl-5">
-          <li>The profile, people and care logs you type in.</li>
-          <li><b>{photos.data?.length ?? 0}</b> encrypted photo(s). Photos are only shown in this app.</li>
-          <li>Nothing here is sent to an AI model. Any later model use will go through the privacy gateway, with a receipt.</li>
-        </ul>
-      </Card>
-
-      <Card className="p-6 bg-tgold/50">
-        <H2>What is not built</H2>
-        <ul className="space-y-2 list-disc pl-5">
-          <li>Face recognition. Photos are for people to look at, not for matching.</li>
-          <li>The doctor report and its sharing controls.</li>
-          <li>Real patient data. This prototype runs on a synthetic persona only.</li>
+          <li>The profile, people and care logs.</li>
+          <li><b>{photos.data?.length ?? 0}</b> encrypted photo(s), only shown in this app.</li>
+          <li>None of it is sent to an AI model.</li>
         </ul>
       </Card>
     </div>

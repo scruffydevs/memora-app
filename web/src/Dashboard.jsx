@@ -56,7 +56,7 @@ export default function Dashboard({ me, onSignOut, onConnectAnother, onMeChange 
       {pid ? <V key={`${tab}-${pid}`} pid={pid} go={setTab} me={me} onMeChange={onMeChange} /> : (
         <Card className="p-8 text-center"><p className="font-display text-2xl">No patient connected</p><p className="text-muted mt-1">Use a connection code from the Memora team to open someone&rsquo;s dashboard.</p></Card>
       )}
-      <p className="text-xs text-muted mt-10 text-center">Prototype on synthetic data. Memora describes what you log. It does not diagnose.</p>
+      <p className="text-xs text-muted mt-10 text-center">Memora describes what you log. It does not diagnose.</p>
     </div>
   );
 }

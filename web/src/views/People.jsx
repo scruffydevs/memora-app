@@ -16,7 +16,7 @@ function Form({ initial, onSave, onCancel }) {
       <div className="mt-4"><Field label="What to mention" hint="A gentle conversation starter, like a shared memory"><input className="input" value={f.mention || ''} onChange={(e) => set('mention', e.target.value)} /></Field></div>
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <Toggle checked={f.consent_noted} onChange={(v) => set('consent_noted', v)} label="This person agrees to be in Memora" hint="Required before a photo can be stored. Turning it off deletes their photo." />
-        <Toggle checked={f.enrolled} onChange={(v) => set('enrolled', v)} label="Enrolled person" hint="Someone the patient knows. Recognition is planned, not built." />
+        <Toggle checked={f.enrolled} onChange={(v) => set('enrolled', v)} label="Enrolled person" hint="Someone the patient knows well." />
       </div>
       <div className="flex gap-2 mt-5"><Btn onClick={() => f.name.trim() && onSave(f)}>Save person</Btn><Btn kind="ghost" onClick={onCancel}>Cancel</Btn></div>
     </Card>
@@ -80,7 +80,7 @@ export default function People({ pid }) {
         <div className="mr-auto"><H2 hint="The people who matter, with a note on what to mention.">People</H2></div>
         <Btn onClick={() => setEditing('new')}>+ Add a person</Btn>
       </div>
-      <Notice tone="gold">Photos are stored <b>encrypted</b>, only with consent, and are only shown here. <b>Face recognition is not built.</b> It is a planned feature that needs consent, platform and legal checks first.</Notice>
+      <Notice tone="gold">Photos are stored <b>encrypted</b>, only with consent, and are only shown here.</Notice>
       {msg && <Notice tone={msg.tone}>{msg.t}</Notice>}
       {editing && <Form initial={editing === 'new' ? BLANK : editing} onSave={save} onCancel={() => setEditing(null)} />}
       {loading ? <p className="text-muted">Loading…</p> : error ? <Notice tone="terra">{error.message}</Notice> : !data.length ? <Card className="p-8 text-center text-muted">No one added yet.</Card> : (
