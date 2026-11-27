@@ -11,6 +11,7 @@ import adminRoutes from './routes/admin.js';
 import core from './routes/core.js';
 import caregiver from './routes/caregiver.js';
 import arena from './routes/arena.js';
+import live from './routes/live.js';
 
 // Every patient-scoped request is checked here, before any route runs:
 // a caregiver only reaches patients they are actively connected to. Admins (the Memora team) reach all.
@@ -24,7 +25,7 @@ const guardPatient = (getId) => async (req, res, next) => {
 };
 
 // Routes addressed by a record id (/contacts/5, /logs/9 ...): find the record's patient, then check access.
-const RESOURCES = { contacts: 'contacts', logs: 'care_logs', photos: 'photos', observations: 'observations', medicines: 'medicines' };
+const RESOURCES = { contacts: 'contacts', logs: 'care_logs', photos: 'photos', observations: 'observations', medicines: 'medicines', places: 'places' };
 const guardResource = (table) => async (req, res, next) => {
   try {
     const id = Number(req.params.id);
@@ -72,6 +73,7 @@ export function createApp() {
   api.use(core);
   api.use(caregiver);
   api.use(arena);
+  api.use(live);
   api.use((_req, res) => res.status(404).json({ error: 'not_found' }));
   app.use('/api', api);
 

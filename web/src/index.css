@@ -2,6 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
+:root { --c-terra: #C8643A; --c-sage: #6F8A5E; }
 html { font-size: 17px; }
 body {
   @apply text-ink font-body antialiased;

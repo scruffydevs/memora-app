@@ -34,19 +34,24 @@ r.put('/patients/:id/profile', requireAdmin, wrap(async (req, res) => {
   const b = req.body || {};
   const row = (await q(
     `INSERT INTO patient_profiles (patient_id, preferred_name, language, age_band, background, traits, likes, dislikes, calming, triggers, communication, routine, consent_photos, consent_caregiver_view,
-                                   conditions, allergies, emergency_name, emergency_phone, clinician_name, clinic, updated_at)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20, now())
+                                   conditions, allergies, emergency_name, emergency_phone, clinician_name, clinic, consent_wearables, updated_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21, now())
      ON CONFLICT (patient_id) DO UPDATE SET
        preferred_name=EXCLUDED.preferred_name, language=EXCLUDED.language, age_band=EXCLUDED.age_band, background=EXCLUDED.background,
        traits=EXCLUDED.traits, likes=EXCLUDED.likes, dislikes=EXCLUDED.dislikes, calming=EXCLUDED.calming, triggers=EXCLUDED.triggers,
        communication=EXCLUDED.communication, routine=EXCLUDED.routine, consent_photos=EXCLUDED.consent_photos,
        consent_caregiver_view=EXCLUDED.consent_caregiver_view, conditions=EXCLUDED.conditions, allergies=EXCLUDED.allergies,
        emergency_name=EXCLUDED.emergency_name, emergency_phone=EXCLUDED.emergency_phone, clinician_name=EXCLUDED.clinician_name,
-       clinic=EXCLUDED.clinic, updated_at=now()
+       clinic=EXCLUDED.clinic, consent_wearables=EXCLUDED.consent_wearables, updated_at=now()
      RETURNING *`,
     [id, str(b.preferred_name, 80), str(b.language, 60), str(b.age_band, 20), str(b.background, 4000), toList(b.traits), toList(b.likes), toList(b.dislikes), toList(b.calming), toList(b.triggers), str(b.communication, 2000), str(b.routine, 3000), Boolean(b.consent_photos), b.consent_caregiver_view !== false,
-      str(b.conditions, 1500), str(b.allergies, 600), str(b.emergency_name, 120), str(b.emergency_phone, 40), str(b.clinician_name, 120), str(b.clinic, 160)],
+      str(b.conditions, 1500), str(b.allergies, 600), str(b.emergency_name, 120), str(b.emergency_phone, 40), str(b.clinician_name, 120), str(b.clinic, 160), Boolean(b.consent_wearables)],
   )).rows[0];
+  // Withdrawing wearable consent deletes every live sample and device record for this patient.
+  if (!row.consent_wearables) {
+    await q('DELETE FROM signals WHERE patient_id=$1 AND device_id IS NOT NULL', [id]);
+    await q('DELETE FROM devices WHERE patient_id=$1', [id]);
+  }
   // Withdrawing photo consent removes stored photos.
   if (!row.consent_photos) await q('DELETE FROM photos WHERE patient_id=$1', [id]);
   res.json(row);

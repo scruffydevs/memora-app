@@ -14,6 +14,24 @@ Memora: an adaptive memory layer for early-stage Alzheimer's. This repo is the w
 
 The split is enforced by the server, not just hidden in the interface.
 
+## Live data
+
+The **Live** tab shows near-real-time readings from three kinds of source:
+
+| Source | What it sends | Needs |
+| --- | --- | --- |
+| Phone sensors | Movement and location from the phone's browser | Chrome on Android, the `https` address, location permission |
+| Bluetooth heart-rate device | Heart rate from a strap or a watch that shares it | Chrome or Edge with Web Bluetooth (not Safari or iPhone) |
+| Simulator | Made-up readings, labelled as not a real person | Nothing, a fallback for demos |
+
+Samples go to `POST /api/patients/:id/live/samples` and come back to every open dashboard over a Server-Sent Events stream (`GET /api/patients/:id/live`). `GET .../live/state` returns the last minutes, a plain summary, devices, and how far the phone is from the patient's **places**.
+
+- **Consent first:** wearable data is off by default. The Memora team switches it on under Consent. Turning it off deletes all live samples and devices.
+- **Tier 0:** live samples are never read by the question-answering code or sent to a model. A test checks this.
+- **Places:** the team adds Home and other places with coordinates under Places (there is a "use my current location" button). The Live tab shows "At Home" or "120 m from Home".
+- **Not real health data in the demo:** use a volunteer's own device with their agreement, never a patient's.
+- Google Fit is not used: its APIs are closed to new apps and end in 2026.
+
 ## How accounts work
 
 1. The Memora team (admin) signs in and **creates the patient account**. It gets a patient code like `MP-4F7K2X`.

@@ -26,7 +26,7 @@ after(async () => { server.close(); await pool.end(); });
 // A tiny HTTP client that keeps its own cookie, like one browser.
 const client = () => {
   let cookie = '';
-  return async (method, path, body) => {
+  const call = async (method, path, body) => {
     const r = await fetch(base + path, { method, headers: { 'content-type': 'application/json', ...(cookie ? { cookie } : {}) }, body: body === undefined ? undefined : JSON.stringify(body) });
     const sc = r.headers.get('set-cookie');
     if (sc) { const c = sc.split(';')[0]; cookie = c.endsWith('=') ? '' : c; }
@@ -34,6 +34,8 @@ const client = () => {
     let json = null; try { json = JSON.parse(buf.toString('utf8')); } catch { /* not json */ }
     return { status: r.status, json, buf, headers: r.headers };
   };
+  call.cookie = () => cookie;
+  return call;
 };
 const admin = client(); const alice = client(); const bob = client(); const anon = client();
 let P1; let P2; let codeP1; let P2contact; let P2log; let aliceContact; let aliceLog; let photoId;
@@ -189,6 +191,71 @@ test('ending a connection removes access; history stays and the next caregiver s
   assert.deepEqual(team.map((t) => [t.name, t.status]), [['Bob', 'active'], ['Alice', 'ended']]);
   assert.equal((await bob('GET', `/api/photos/${photoId}`)).status, 200); // the patient file carries over
   assert.equal((await bob('POST', '/api/auth/connect', { code: codeP1 })).status, 400); // single use
+});
+
+test('live wearable data needs consent, streams to dashboards, stays scoped and is deleted on withdrawal', async () => {
+  // places: the team sets them, caregivers read them
+  assert.equal((await bob('POST', `/api/patients/${P1.id}/places`, { label: 'Hack', lat: 1, lon: 1 })).status, 403);
+  assert.equal((await admin('POST', `/api/patients/${P1.id}/places`, { label: 'Bad', lat: 99, lon: 1 })).status, 400);
+  const home = await admin('POST', `/api/patients/${P1.id}/places`, { label: 'Home', lat: 12.9716, lon: 77.5946, radius_m: 60 });
+  assert.equal(home.status, 201);
+  assert.equal((await bob('GET', `/api/patients/${P1.id}/places`)).json.length, 1);
+  assert.equal((await alice('DELETE', `/api/places/${home.json.id}`)).status, 403);
+  const body = { device: { kind: 'simulator', label: 'test sim' }, samples: [{ kind: 'heart_rate', value: 72 }, { kind: 'motion', value: 1.2 }, { kind: 'lat', value: 12.9716 }, { kind: 'lon', value: 77.5946 }] };
+  const live = (p) => `/api/patients/${P1.id}/live${p}`;
+
+  assert.equal((await bob('POST', live('/samples'), body)).status, 403); // wearable consent is off by default
+  const prof = (await admin('GET', `/api/patients/${P1.id}/profile`)).json.profile;
+  assert.equal(prof.consent_wearables, false);
+  assert.equal((await bob('PUT', `/api/patients/${P1.id}/profile`, { ...prof, consent_wearables: true })).status, 403); // only the team switches consent
+  assert.equal((await admin('PUT', `/api/patients/${P1.id}/profile`, { ...prof, consent_wearables: true })).status, 200);
+
+  // a dashboard listens; a sample posted by the phone reaches it
+  const ac = new AbortController();
+  const stream = await fetch(base + live(''), { headers: { cookie: bob.cookie() }, signal: ac.signal });
+  assert.equal(stream.status, 200);
+  assert.match(stream.headers.get('content-type'), /text\/event-stream/);
+  const reader = stream.body.getReader();
+  await new Promise((r) => setTimeout(r, 150));
+  const posted = await bob('POST', live('/samples'), body);
+  assert.equal(posted.status, 200);
+  assert.deepEqual([posted.json.accepted, posted.json.rejected], [4, 0]);
+  let seen = '';
+  const deadline = Date.now() + 3000;
+  while (!seen.includes('heart_rate') && Date.now() < deadline) { const { value, done } = await reader.read(); if (done) break; seen += Buffer.from(value).toString('utf8'); }
+  ac.abort();
+  assert.ok(seen.includes('"kind":"heart_rate"') && seen.includes('"value":72'), 'the stream carried the sample');
+
+  // bad input is refused or dropped, never stored
+  const bad = await bob('POST', live('/samples'), { device: { kind: 'simulator', label: 'test sim' }, samples: [{ kind: 'heart_rate', value: 500 }, { kind: 'nope', value: 1 }] });
+  assert.deepEqual([bad.json.accepted, bad.json.rejected], [0, 2]);
+  assert.equal((await bob('POST', live('/samples'), { device: { kind: 'toaster' }, samples: [{ kind: 'heart_rate', value: 70 }] })).status, 400);
+  assert.equal((await bob('POST', live('/samples'), { device: { kind: 'simulator' }, samples: [] })).status, 400);
+
+  // state: a plain summary, and the phone placed against a known place
+  const st = (await bob('GET', live('/state?minutes=10'))).json;
+  assert.equal(st.consent, true);
+  assert.equal(st.summary.heart_rate.avg, 72);
+  assert.equal(st.summary.location.nearest.label, 'Home');
+  assert.equal(st.summary.location.nearest.inside, true);
+  assert.equal(st.devices[0].label, 'test sim');
+
+  // scoped: not connected -> 403, not signed in -> 401, another patient's stream is not reachable
+  assert.equal((await alice('GET', live('/state'))).status, 403);
+  assert.equal((await alice('POST', live('/samples'), body)).status, 403);
+  assert.equal((await anon('GET', live('/state'))).status, 401);
+  assert.equal((await bob('GET', `/api/patients/${P2.id}/live/state`)).status, 403);
+
+  // live data is Tier 0: the question-answering code never reads signals
+  const askSource = (await import('node:fs')).readFileSync(new URL('../src/ask.js', import.meta.url), 'utf8');
+  assert.ok(!/signals/i.test(askSource), 'ask.js must not touch signals');
+
+  // withdrawing consent deletes the live samples and devices
+  assert.equal((await admin('PUT', `/api/patients/${P1.id}/profile`, { ...prof, consent_wearables: false })).status, 200);
+  const gone = (await admin('GET', live('/state'))).json;
+  assert.equal(gone.consent, false);
+  assert.deepEqual([gone.samples.length, gone.devices.length], [0, 0]);
+  assert.equal((await bob('POST', live('/samples'), body)).status, 403);
 });
 
 test('a caregiver can leave, and a disabled caregiver is locked out', async () => {

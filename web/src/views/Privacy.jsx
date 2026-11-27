@@ -30,11 +30,14 @@ export default function Privacy({ pid, me, onMeChange, editable = false }) {
               hint="Photos are encrypted before they reach the database. Turning this off deletes every stored photo." />
             <Toggle checked={profile.consent_caregiver_view} onChange={(v) => change({ consent_caregiver_view: v })} label="Caregivers can see this profile and these logs"
               hint="Recorded here as the patient's choice. Sharing with a doctor will have its own switch when the clinician report is built." />
+            <Toggle checked={profile.consent_wearables} onChange={(v) => change({ consent_wearables: v })} label="Wearable and phone sensor data (live heart rate, movement, location)"
+              hint="Kept as Tier 0 and never sent to an AI model. Turning this off deletes all live samples and device records." />
           </>
         ) : (
           <ul className="space-y-3">
             <li className="flex flex-wrap items-center gap-2"><Chip tone={profile.consent_photos ? 'sage' : 'plain'}>{profile.consent_photos ? 'On' : 'Off'}</Chip><span>Photos of the patient and the people they know are stored, encrypted.</span></li>
             <li className="flex flex-wrap items-center gap-2"><Chip tone={profile.consent_caregiver_view ? 'sage' : 'plain'}>{profile.consent_caregiver_view ? 'On' : 'Off'}</Chip><span>Caregivers can see this profile and these logs.</span></li>
+            <li className="flex flex-wrap items-center gap-2"><Chip tone={profile.consent_wearables ? 'sage' : 'plain'}>{profile.consent_wearables ? 'On' : 'Off'}</Chip><span>Wearable and phone sensor data (live heart rate, movement, location) may be collected. It is never sent to an AI model.</span></li>
           </ul>
         )}
       </Card>

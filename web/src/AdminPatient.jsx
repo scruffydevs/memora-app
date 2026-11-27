@@ -9,10 +9,12 @@ import Privacy from './views/Privacy.jsx';
 import Connections from './views/Connections.jsx';
 import Arena from './views/Arena.jsx';
 import Logs from './views/Logs.jsx';
+import Live from './views/Live.jsx';
+import Places from './views/Places.jsx';
 
 const TABS = [
-  ['file', 'Patient file'], ['people', 'People'], ['medicines', 'Medicines'], ['consent', 'Consent'],
-  ['connections', 'Connections'], ['observations', 'Observations'], ['logs', 'Logs'],
+  ['file', 'Patient file'], ['people', 'People'], ['medicines', 'Medicines'], ['places', 'Places'], ['consent', 'Consent'],
+  ['connections', 'Connections'], ['live', 'Live'], ['observations', 'Observations'], ['logs', 'Logs'],
 ];
 
 // The Memora team's page for one patient: complete the profiling here. Caregivers see it read-only.
@@ -24,8 +26,10 @@ export default function AdminPatient({ me, pid, onSignOut }) {
     file: <Profile pid={pid} />,
     people: <People pid={pid} />,
     medicines: <Medicines pid={pid} />,
+    places: <Places pid={pid} />,
     consent: <Privacy pid={pid} me={me} editable />,
     connections: <Connections pid={pid} />,
+    live: <Live pid={pid} />,
     observations: <Arena pid={pid} readOnly />,
     logs: <Logs pid={pid} readOnly />,
   };
