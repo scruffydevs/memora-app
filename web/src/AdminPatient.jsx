@@ -12,18 +12,20 @@ import Logs from './views/Logs.jsx';
 import Live from './views/Live.jsx';
 import Places from './views/Places.jsx';
 import Memory from './views/Memory.jsx';
+import DataOverview from './views/DataOverview.jsx';
 
 const TABS = [
-  ['file', 'Patient file'], ['people', 'People'], ['medicines', 'Medicines'], ['places', 'Places'], ['consent', 'Consent'],
+  ['data', 'Data'], ['file', 'Patient file'], ['people', 'People'], ['medicines', 'Medicines'], ['places', 'Places'], ['consent', 'Consent'],
   ['connections', 'Connections'], ['memory', 'Memory'], ['live', 'Live'], ['observations', 'Observations'], ['logs', 'Logs'],
 ];
 
 // The Memora team's page for one patient: complete the profiling here. Caregivers see it read-only.
 export default function AdminPatient({ me, pid, onSignOut }) {
-  const [tab, setTab] = useState('file');
+  const [tab, setTab] = useState('data');
   const info = useAsync(() => api.get(`/api/patients/${pid}/profile`), [pid]);
 
   const views = {
+    data: <DataOverview pid={pid} go={setTab} />,
     file: <Profile pid={pid} />,
     people: <People pid={pid} />,
     medicines: <Medicines pid={pid} />,

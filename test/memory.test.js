@@ -234,3 +234,40 @@ test('the engine can be switched off, and a profile save still works', async () 
   assert.ok(out.created >= 1);
   assert.ok(texts(await list()).includes('Likes gardening'));
 });
+
+test('the data overview counts what is held without showing content, follows consent, and respects access', async () => {
+  const get = async (client = admin, id = P.id) => client('GET', url('/data-overview', id));
+  const r = await get();
+  assert.equal(r.status, 200);
+  const d = r.json;
+  const cat = (k, x = d) => x.categories.find((c) => c.key === k);
+
+  assert.equal(cat('profile').state, 'collected');
+  assert.ok(cat('memories').count > 0 && cat('memories').state === 'collected');
+  assert.equal(cat('wearables').state, 'off', 'no consent yet');
+  assert.equal(cat('photos').state, 'off');
+  assert.equal(cat('logs').state, 'available', 'nothing logged any more, so it can still be collected');
+  assert.ok(cat('logs').next && cat('logs').next.tab === 'logs', 'an empty kind says what to do next');
+  assert.equal(d.team.active, 1);
+  assert.equal(d.vault.receipts, 0, 'nothing has left the vault');
+  assert.equal(d.tiers.t0 + d.tiers.t1 + d.tiers.t2, cat('memories').count);
+  assert.equal(d.totals.consents_on, 1); // only "caregivers can see" is on by default
+  assert.equal(cat('profile').series, undefined);
+  assert.equal(cat('memories').series.length, 8);
+
+  // counts and dates only: no record content anywhere in the answer
+  assert.ok(!/Retired teacher|Early-stage|gardening|Anita, daughter|Tea at/.test(JSON.stringify(d)));
+
+  // consent changes what can be collected
+  await profile({ consent_photos: true, consent_wearables: true });
+  const d2 = (await get()).json;
+  assert.equal(cat('wearables', d2).state, 'available');
+  assert.equal(cat('photos', d2).state, 'available');
+  assert.equal(d2.totals.consents_on, 3);
+
+  // access
+  assert.equal((await get(alice)).status, 200);
+  assert.equal((await get(bob)).status, 403);
+  assert.equal((await get(anon)).status, 401);
+  assert.equal((await get(alice, P2.id)).status, 403);
+});
