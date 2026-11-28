@@ -27,6 +27,7 @@ const MESSAGES = {
   forbidden: 'You do not have access to that.',
   photo_consent_required: 'Photo consent is off. Turn it on in Privacy first.',
   contact_consent_required: 'Note this person’s consent first, then add a photo.',
+  use_website: 'Memora team accounts sign in on the website, not in the app.',
   photo_encryption_not_configured: 'Photo storage is not set up on the server yet.',
 };
 

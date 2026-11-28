@@ -3,6 +3,7 @@ import { q, pool } from '../db.js';
 import { wrap, str, TRAITS, CONTEXT_TYPES, RELATIONS } from '../util.js';
 import { requireAdmin } from '../auth.js';
 import { engine } from '../memory/engine.js';
+import { record } from '../activity.js';
 
 const r = Router();
 
@@ -56,6 +57,7 @@ r.post('/patients/:id/observations', wrap(async (req, res) => {
     for (const t of traits) await client.query('INSERT INTO observation_traits (observation_id, trait, vs_usual, detail) VALUES ($1,$2,$3,$4)', [o.id, t.trait, t.vs_usual, t.detail]);
     await client.query('COMMIT');
     await engine.onObservationSaved(o.id, req.user.name);
+    record('observation', patientId, `A log arena note was added with ${traits.length} characteristic${traits.length === 1 ? '' : 's'} rated`);
     res.status(201).json({ id: o.id });
   } catch (e) { await client.query('ROLLBACK'); throw e; } finally { client.release(); }
 }));

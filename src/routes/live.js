@@ -3,6 +3,7 @@ import { q } from '../db.js';
 import { wrap, str } from '../util.js';
 import { rateLimit, requireAdmin } from '../auth.js';
 import { subscribe, publish } from '../live.js';
+import { recordBurst } from '../activity.js';
 
 const r = Router(); // mounted under /api; patient access is checked by guardPatient on /patients/:id
 
@@ -64,6 +65,7 @@ r.post('/patients/:id/live/samples', rateLimit((req) => `live|${req.user?.id}|${
     accepted++;
   }
   await q('UPDATE devices SET last_seen=now() WHERE id=$1', [dev.id]);
+  if (accepted) recordBurst(`${patientId}|${kind}|${label}`, 'live', patientId, accepted, label);
   res.json({ accepted, rejected });
 }));
 

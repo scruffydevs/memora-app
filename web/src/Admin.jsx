@@ -150,6 +150,7 @@ export default function AdminConsole({ me, onSignOut }) {
       <header className="flex flex-wrap items-center gap-3 py-5">
         <div className="mr-auto"><div className="font-display text-3xl font-bold leading-none">Memora</div><div className="text-xs font-bold tracking-[0.25em] text-terra mt-1">MEMORA TEAM</div></div>
         <span className="text-sm text-muted">{me.user.email}</span>
+        <Btn kind="ghost" onClick={() => navigate('/admin/showcase')}>Backend showcase</Btn>
         <Btn kind="ghost" onClick={onSignOut}>Sign out</Btn>
       </header>
       <nav className="flex gap-1 border-b border-line mb-6">

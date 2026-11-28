@@ -367,3 +367,37 @@ test('the Android app signs in with a bearer token, no cookie, and only the phon
   assert.equal((await call('POST', '/api/auth/logout', { headers: bearer(token) })).status, 204);
   assert.equal((await call('GET', '/api/auth/me', { headers: bearer(token) })).status, 401);
 });
+
+test('the backend showcase feed is admin-only, shows what the backend did, and never carries record content', async () => {
+  const { resetActivity } = await import('../src/activity.js');
+  resetActivity();
+  await profile({ consent_wearables: true });
+  const secret = 'ZZUNIQUEPHRASEZZ';
+  assert.equal((await alice('POST', url('/logs'), { kind: 'note', text: `Saw ${secret} today` })).status, 201);
+  assert.equal((await alice('POST', url('/daily-metrics'), { days: [{ day: new Date().toISOString().slice(0, 10), steps: 4100 }] })).status, 200);
+  const live = await alice('POST', url('/live/samples'), { device: { kind: 'simulator', label: 'Test sim' }, samples: [{ kind: 'heart_rate', value: 72 }] });
+  assert.equal(live.status, 200);
+
+  const feed = await admin('GET', '/api/admin/showcase/activity');
+  assert.equal(feed.status, 200);
+  const text = feed.json.map((e) => e.text).join(' | ');
+  assert.match(text, /a note entry was added to the care log/i);
+  assert.match(text, /Watch data arrived: 1 day/);
+  assert.match(text, /1 live reading from Test sim/);
+  assert.ok(feed.json.every((e) => e.id && e.ts && e.kind), 'each event has an id, time and kind');
+  assert.ok(!text.includes(secret), 'the content of a log never appears in the feed');
+
+  assert.equal((await alice('GET', '/api/admin/showcase/activity')).status, 403, 'caregivers cannot read it');
+  assert.equal((await anon('GET', '/api/admin/showcase/activity')).status, 401);
+  await profile({ consent_wearables: false });
+});
+
+test('team accounts cannot sign in from the Android app', async () => {
+  const r = await fetch(base + '/api/auth/login', { method: 'POST', headers: { 'content-type': 'application/json', 'x-memora-client': 'app', origin: 'https://localhost' }, body: JSON.stringify({ email: 'admin@memora.test', password: 'correct horse battery' }) });
+  assert.equal(r.status, 403);
+  assert.equal((await r.json()).error, 'use_website');
+  assert.equal(r.headers.get('set-cookie'), null);
+  // the website login for the same account still works
+  const w = await fetch(base + '/api/auth/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'admin@memora.test', password: 'correct horse battery' }) });
+  assert.equal(w.status, 200);
+});

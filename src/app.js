@@ -15,6 +15,7 @@ import live from './routes/live.js';
 import memory from './routes/memory.js';
 import overview from './routes/overview.js';
 import daily from './routes/daily.js';
+import showcase from './routes/showcase.js';
 
 // Every patient-scoped request is checked here, before any route runs:
 // a caregiver only reaches patients they are actively connected to. Admins (the Memora team) reach all.
@@ -78,6 +79,7 @@ export function createApp() {
   api.use(loadUser);
   api.use('/auth', authRoutes);
   api.use(requireUser);
+  api.use('/admin/showcase', requireAdmin, showcase);
   api.use('/admin', requireAdmin, adminRoutes);
 
   api.use('/patients/:id', guardPatient((req) => req.params.id));

@@ -4,6 +4,7 @@ import { wrap, toList, str, BEHAVIOUR_CATEGORIES, LOG_KINDS } from '../util.js';
 import { encrypt, decrypt, encryptionReady } from '../crypto.js';
 import { requireAdmin } from '../auth.js';
 import { engine } from '../memory/engine.js';
+import { record } from '../activity.js';
 
 // Profiling (the patient file, people, consent, photos) is done by the Memora team. Caregivers read it and log.
 
@@ -57,6 +58,7 @@ r.put('/patients/:id/profile', requireAdmin, wrap(async (req, res) => {
   // Withdrawing photo consent removes stored photos.
   if (!row.consent_photos) await q('DELETE FROM photos WHERE patient_id=$1', [id]);
   await engine.onProfileSaved(id, req.user.name); // keep the memory engine in step with the patient file
+  record('profile', id, 'Patient file saved; memories brought up to date');
   res.json(row);
 }));
 
@@ -118,6 +120,7 @@ r.post('/patients/:id/logs', wrap(async (req, res) => {
     // The author is always the signed-in caregiver, never typed in by the client.
     [req.params.id, b.ts || null, kind, category, severity, str(b.trigger_text, 300), str(b.helped, 300), text, req.user.name, req.user.id])).rows[0];
   await engine.onCareLogSaved(log.id, req.user.name);
+  record('log', Number(req.params.id), `A ${kind} entry was added to the care log`);
   res.status(201).json(log);
 }));
 

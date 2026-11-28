@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { q } from '../db.js';
 import { wrap, str } from '../util.js';
 import { rateLimit } from '../auth.js';
+import { record } from '../activity.js';
 
 const r = Router(); // patient scope is checked by guardPatient on /patients/:id
 
@@ -63,6 +64,7 @@ r.post('/patients/:id/daily-metrics', rateLimit((req) => `daily|${req.user?.id}|
   }
   await q(`INSERT INTO devices (patient_id, kind, label, last_seen) VALUES ($1,'health_connect',$2,now())
            ON CONFLICT (patient_id, kind, label) DO UPDATE SET last_seen=now()`, [patientId, sourceName || 'Health Connect']);
+  record('watch', patientId, `Watch data arrived: ${days.length} day${days.length === 1 ? '' : 's'} from ${sourceName || 'Health Connect'}`);
   res.json({ saved: days.length, skipped: input.length - days.length });
 }));
 

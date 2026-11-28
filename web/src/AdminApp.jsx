@@ -3,6 +3,7 @@ import { useSession } from './session.js';
 import { AuthScreen, WrongArea } from './Auth.jsx';
 import AdminConsole from './Admin.jsx';
 import AdminPatient from './AdminPatient.jsx';
+import Showcase from './Showcase.jsx';
 import { Btn, Card } from './ui.jsx';
 
 // /admin: the Memora team. Create patient accounts, do the profiling, connect caregivers.
@@ -21,6 +22,7 @@ export default function AdminApp({ path }) {
   }
   if (me.user.role !== 'admin') return <WrongArea youAre="a caregiver" goTo="/caregiver" goLabel="Go to your dashboard" onSignOut={s.signOut} />;
 
+  if (path === '/admin/showcase') return <Showcase me={me} onSignOut={s.signOut} />;
   const m = path.match(/^\/admin\/patients\/(\d+)$/);
   return m ? <AdminPatient me={me} pid={Number(m[1])} onSignOut={s.signOut} /> : <AdminConsole me={me} onSignOut={s.signOut} />;
 }

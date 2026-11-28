@@ -1,6 +1,8 @@
 # Memora Android app
 
-A real Android app (an APK). The Memora screens are packed inside it, so it opens straight into the app with no
+A real Android app (an APK) for **caregivers**. The Memora team console and the backend showcase live on the website only (`/admin`, `/admin/showcase`); they are not in this app, and team accounts cannot sign in here.
+
+The Memora screens are packed inside it, so it opens straight into the app with no
 browser involved, and it adds one thing a website cannot do: read a watch's daily numbers (sleep, steps, heart rate,
 resting heart rate, heart rate variability, blood oxygen, active calories) from **Health Connect** on the phone and
 send them to Memora.

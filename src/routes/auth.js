@@ -37,6 +37,7 @@ r.post('/login', rateLimit(byIpEmail), wrap(async (req, res) => {
   if (!u) { await dummyVerify(password); return res.status(401).json({ error: 'invalid_login' }); }
   if (!(await verifyPassword(password, u.password_hash))) return res.status(401).json({ error: 'invalid_login' });
   if (u.disabled) return res.status(403).json({ error: 'account_disabled' });
+  if (u.role === 'admin' && isAppClient(req)) return res.status(403).json({ error: 'use_website' }); // the app is for caregivers
   await q('UPDATE users SET last_login=now() WHERE id=$1', [u.id]);
   const token = await startSession(req, res, u.id);
   res.json(withToken(req, await sessionInfo(u), token));

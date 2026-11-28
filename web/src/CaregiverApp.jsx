@@ -3,6 +3,7 @@ import { useSession } from './session.js';
 import { AuthScreen, ConnectScreen, WrongArea } from './Auth.jsx';
 import Dashboard from './Dashboard.jsx';
 import { Btn, Card } from './ui.jsx';
+import { APP_MODE } from './api.js';
 
 // /caregiver: sign in -> connect with a one-time code -> dashboard for the connected patient.
 export default function CaregiverApp() {
@@ -13,7 +14,11 @@ export default function CaregiverApp() {
   if (s.status === 'loading') return <div className="p-10 text-muted">Loading…</div>;
   if (s.status === 'error') return <div className="p-10"><Card className="p-6 max-w-lg"><b>Could not reach the server.</b><p className="text-muted mt-1">{s.error}</p><Btn className="mt-4" onClick={() => window.location.reload()}>Try again</Btn></Card></div>;
   if (s.status === 'anon') return <AuthScreen area="caregiver" onAuthed={s.setMe} />;
-  if (me.user.role === 'admin') return <WrongArea youAre="the Memora team" goTo="/admin" goLabel="Go to the team area" onSignOut={s.signOut} />;
+  if (me.user.role === 'admin') {
+    return APP_MODE
+      ? <WrongArea youAre="the Memora team" message="Team accounts use the Memora website, not this app." onSignOut={s.signOut} />
+      : <WrongArea youAre="the Memora team" goTo="/admin" goLabel="Go to the team area" onSignOut={s.signOut} />;
+  }
 
   const changed = (m) => { s.setMe(m); setConnecting(false); };
   if (me.connections.length === 0 || connecting) {

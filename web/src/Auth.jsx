@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { api } from './api.js';
 import { Link } from './router.jsx';
+import { APP_MODE } from './api.js';
 import { Btn, Card, Field, Notice } from './ui.jsx';
 
 export const Brand = ({ label }) => (
@@ -51,7 +52,7 @@ export function AuthScreen({ onAuthed, area = 'caregiver', notice }) {
           <Btn className="w-full" disabled={busy}>{busy ? 'One moment…' : mode === 'login' ? 'Sign in' : 'Create account'}</Btn>
         </form>
         {mode === 'signup' && <p className="text-xs text-muted mt-4">After you sign up, the Memora team gives you a one-time code that connects you to the person you care for. Until then you will not see anyone&rsquo;s information.</p>}
-        <p className="text-xs text-muted mt-5">{isAdmin ? <>Caregiver? <Link to="/caregiver" className="text-terra font-semibold hover:underline">Go to caregiver sign-in</Link></> : <>Memora team? <Link to="/admin" className="text-terra font-semibold hover:underline">Team sign-in</Link></>}</p>
+        <p className="text-xs text-muted mt-5">{isAdmin ? <>Caregiver? <Link to="/caregiver" className="text-terra font-semibold hover:underline">Go to caregiver sign-in</Link></> : APP_MODE ? <>Memora team accounts sign in on the website.</> : <>Memora team? <Link to="/admin" className="text-terra font-semibold hover:underline">Team sign-in</Link></>}</p>
       </Card>
     </div>
   );
@@ -88,14 +89,14 @@ export function ConnectScreen({ me, onConnected, onSignOut, onCancel }) {
   );
 }
 
-export function WrongArea({ youAre, goTo, goLabel, onSignOut }) {
+export function WrongArea({ youAre, goTo, goLabel, message, onSignOut }) {
   return (
     <div className="min-h-screen flex items-center justify-center p-6">
       <Card className="w-full max-w-md p-8">
         <Brand />
         <h2 className="font-display text-2xl font-bold mb-2">You are signed in as {youAre}</h2>
-        <p className="text-muted mb-5">This area is for someone else. Go to your own area, or sign out to use a different account.</p>
-        <div className="flex gap-2"><Link to={goTo} className="rounded-xl px-4 py-2.5 font-semibold bg-terra text-white hover:bg-terra2">{goLabel}</Link><Btn kind="ghost" onClick={onSignOut}>Sign out</Btn></div>
+        <p className="text-muted mb-5">{message || 'This area is for someone else. Go to your own area, or sign out to use a different account.'}</p>
+        <div className="flex gap-2">{goTo && <Link to={goTo} className="rounded-xl px-4 py-2.5 font-semibold bg-terra text-white hover:bg-terra2">{goLabel}</Link>}<Btn kind="ghost" onClick={onSignOut}>Sign out</Btn></div>
       </Card>
     </div>
   );

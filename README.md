@@ -11,6 +11,9 @@ Memora: an adaptive memory layer for early-stage Alzheimer's. This repo is the w
 | `/` | Anyone | Chooses an area |
 | `/admin` | The Memora team | Creates patient accounts and **does the profiling**: patient file, people, medicines, consent, photos. Connects and changes caregivers. Can read the logs |
 | `/caregiver` | Caregivers | Reads the **patient file (read-only)** and logs: log arena, behaviour, logs. Cannot edit the profile |
+| `/admin/showcase` | The Memora team | The **backend showcase**: a live feed of what the server is doing, how data flows into the memory engine, and a memory search that shows where each memory came from. Team sign-in only |
+
+The Android app (`mobile/`) is for **caregivers only**. The team console and the showcase are not in its bundle, and team accounts cannot sign in from the app (the server refuses them); they use the website.
 
 The split is enforced by the server, not just hidden in the interface.
 

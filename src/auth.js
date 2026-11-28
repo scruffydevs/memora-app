@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import { q } from './db.js';
+import { recordAudit } from './activity.js';
 
 // ---------- passwords (scrypt) ----------
 const scrypt = (pw, salt) => new Promise((resolve, reject) =>
@@ -84,8 +85,10 @@ export async function canAccess(user, patientId) {
   return r.rows.length > 0;
 }
 
-export const audit = (userId, action, patientId = null, detail = null) =>
-  q('INSERT INTO audit_log (user_id, action, patient_id, detail) VALUES ($1,$2,$3,$4)', [userId, action, patientId, detail]);
+export const audit = async (userId, action, patientId = null, detail = null) => {
+  await q('INSERT INTO audit_log (user_id, action, patient_id, detail) VALUES ($1,$2,$3,$4)', [userId, action, patientId, detail]);
+  recordAudit(action, patientId, detail);
+};
 
 // ---------- small in-memory rate limiter ----------
 const hits = new Map();
