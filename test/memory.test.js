@@ -271,3 +271,59 @@ test('the data overview counts what is held without showing content, follows con
   assert.equal((await get(anon)).status, 401);
   assert.equal((await get(alice, P2.id)).status, 403);
 });
+
+test('daily watch data: saved per day, updated not duplicated, validated, consent-gated, deleted on withdrawal', async () => {
+  const iso = (offset) => new Date(Date.now() + offset * 864e5).toISOString().slice(0, 10);
+  const post = (body, who = admin, id = P.id) => who('POST', url('/daily-metrics', id), body);
+  const get = (who = admin, id = P.id) => who('GET', url('/daily-metrics?days=30', id));
+  await profile({ consent_wearables: true });
+
+  const night = { day: iso(-1), sleep_minutes: 412, deep_minutes: 80, rem_minutes: 95, light_minutes: 237, awake_minutes: 22, awakenings: 3, resting_hr: 61, avg_hr: 74 };
+  let r = await post({ source_name: 'Amazfit Bip 5 via Zepp', days: [night, { day: iso(0), steps: 3120 }] });
+  assert.equal(r.status, 200);
+  assert.equal(r.json.saved, 2);
+
+  let g = (await get()).json;
+  assert.equal(g.consent, true);
+  assert.deepEqual(g.days.map((d) => d.day), [iso(-1), iso(0)], 'oldest first');
+  assert.equal(g.days[0].sleep_minutes, 412);
+  assert.equal(g.days[1].steps, 3120);
+
+  // syncing the same day again updates it, and a number that is missing keeps what was stored
+  r = await post({ days: [{ day: iso(-1), steps: 8800 }] });
+  assert.equal(r.status, 200);
+  g = (await get()).json;
+  assert.equal(g.days.length, 2, 'no duplicate row');
+  assert.equal(g.days[0].steps, 8800);
+  assert.equal(g.days[0].sleep_minutes, 412, 'sleep was not wiped by a steps-only sync');
+
+  // bad input is dropped, not stored
+  r = await post({ days: [{ day: 'yesterday', steps: 5 }, { day: iso(-2), steps: -4, resting_hr: 5, sleep_minutes: 99999 }, { day: iso(-3), steps: 4000 }] });
+  assert.equal(r.status, 200);
+  assert.equal(r.json.saved, 1, 'only the valid day is saved');
+  assert.equal(r.json.skipped, 2, 'a bad date and a day with nothing valid in it are skipped');
+  g = (await get()).json;
+  assert.ok(!g.days.some((d) => d.day === iso(-2)), 'out-of-range numbers are dropped, so that day is not stored');
+  assert.equal((await post({ days: [] })).status, 400);
+  assert.equal((await post({ days: [{ day: '2001-01-01', steps: 1 }] })).status, 400, 'too old');
+
+  // the data overview counts it
+  const ov = (await admin('GET', url('/data-overview'))).json;
+  const cat = ov.categories.find((c) => c.key === 'daily');
+  assert.equal(cat.state, 'collected');
+  assert.equal(cat.count, 3);
+
+  // access: a connected caregiver may sync, a stranger and a signed-out visitor may not
+  assert.equal((await post({ days: [{ day: iso(0), steps: 3300 }] }, alice)).status, 200);
+  assert.equal((await post({ days: [{ day: iso(0), steps: 1 }] }, bob)).status, 403);
+  assert.equal((await get(bob)).status, 403);
+  assert.equal((await post({ days: [{ day: iso(0), steps: 1 }] }, anon)).status, 401);
+  assert.equal((await post({ days: [{ day: iso(0), steps: 1 }] }, alice, P2.id)).status, 403);
+
+  // withdrawing consent deletes every daily row and blocks new ones
+  await profile({ consent_wearables: false });
+  g = (await get()).json;
+  assert.equal(g.consent, false);
+  assert.equal(g.days.length, 0);
+  assert.equal((await post({ days: [night] })).status, 403);
+});

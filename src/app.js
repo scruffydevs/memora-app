@@ -14,6 +14,7 @@ import arena from './routes/arena.js';
 import live from './routes/live.js';
 import memory from './routes/memory.js';
 import overview from './routes/overview.js';
+import daily from './routes/daily.js';
 
 // Every patient-scoped request is checked here, before any route runs:
 // a caregiver only reaches patients they are actively connected to. Admins (the Memora team) reach all.
@@ -78,6 +79,7 @@ export function createApp() {
   api.use(live);
   api.use(memory);
   api.use(overview);
+  api.use(daily);
   api.use((_req, res) => res.status(404).json({ error: 'not_found' }));
   app.use('/api', api);
 

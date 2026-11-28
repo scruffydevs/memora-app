@@ -3,6 +3,7 @@ import { api } from './api.js';
 import { Btn, Card, Chip } from './ui.jsx';
 import Overview from './views/Overview.jsx';
 import Live from './views/Live.jsx';
+import Watch from './views/Watch.jsx';
 import Arena from './views/Arena.jsx';
 import PatientFile from './views/PatientFile.jsx';
 import Behaviour from './views/Behaviour.jsx';
@@ -11,10 +12,10 @@ import Privacy from './views/Privacy.jsx';
 
 // Caregivers read the patient file and log what they notice. The Memora team does the profiling (/admin).
 const TABS = [
-  ['overview', 'Overview'], ['live', 'Live'], ['arena', 'Log arena'], ['behaviour', 'Behaviour'], ['logs', 'Logs'],
+  ['overview', 'Overview'], ['watch', 'Watch'], ['live', 'Live'], ['arena', 'Log arena'], ['behaviour', 'Behaviour'], ['logs', 'Logs'],
   ['file', 'Patient file'], ['privacy', 'Privacy and access'],
 ];
-const VIEWS = { overview: Overview, live: Live, arena: Arena, behaviour: Behaviour, logs: Logs, file: PatientFile, privacy: Privacy };
+const VIEWS = { overview: Overview, watch: Watch, live: Live, arena: Arena, behaviour: Behaviour, logs: Logs, file: PatientFile, privacy: Privacy };
 
 export default function Dashboard({ me, onSignOut, onConnectAnother, onMeChange }) {
   const [patients, setPatients] = useState(null);

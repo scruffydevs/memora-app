@@ -52,6 +52,7 @@ r.put('/patients/:id/profile', requireAdmin, wrap(async (req, res) => {
   if (!row.consent_wearables) {
     await q('DELETE FROM signals WHERE patient_id=$1 AND device_id IS NOT NULL', [id]);
     await q('DELETE FROM devices WHERE patient_id=$1', [id]);
+    await q('DELETE FROM daily_metrics WHERE patient_id=$1', [id]);
   }
   // Withdrawing photo consent removes stored photos.
   if (!row.consent_photos) await q('DELETE FROM photos WHERE patient_id=$1', [id]);

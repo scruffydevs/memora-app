@@ -1,0 +1,38 @@
+# Builds the Memora Android app (a debug APK you can install on a phone) in the cloud.
+# Run it from the Actions tab ("Run workflow"), then download the APK from the finished run.
+name: Android app
+
+on:
+  workflow_dispatch:
+  push:
+    paths: ['mobile/**', '.github/workflows/android.yml']
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    env:
+      # Optional: set a repository variable MEMORA_URL to point the app at another server.
+      MEMORA_URL: ${{ vars.MEMORA_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: npm ci
+      - run: npx cap sync android
+      - run: chmod +x android/gradlew && ./gradlew assembleDebug
+        working-directory: mobile/android
+      - uses: actions/upload-artifact@v4
+        with:
+          name: memora-debug-apk
+          path: mobile/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error

@@ -47,6 +47,8 @@ r.get('/patients/:id/data-overview', wrap(async (req, res) => {
   const sig = await one('SELECT COUNT(*)::int AS n, MAX(ts) AS last FROM signals WHERE patient_id=$1 AND device_id IS NOT NULL');
   const sigTs = (await q(`SELECT ts FROM signals WHERE patient_id=$1 AND device_id IS NOT NULL AND ${since}`, [id])).rows;
   const dev = await one('SELECT COUNT(*)::int AS n FROM devices WHERE patient_id=$1');
+  const day = await one('SELECT COUNT(*)::int AS n, MAX(synced_at) AS last, COUNT(*) FILTER (WHERE sleep_minutes IS NOT NULL)::int AS sleep, COUNT(*) FILTER (WHERE steps IS NOT NULL)::int AS steps FROM daily_metrics WHERE patient_id=$1');
+  const dayTs = (await q("SELECT day::timestamp AS ts FROM daily_metrics WHERE patient_id=$1 AND day > now()::date - 56", [id])).rows;
   const rec = await one('SELECT COUNT(*)::int AS n, COALESCE(SUM(masked_count),0)::int AS masked, COUNT(*) FILTER (WHERE dry_run)::int AS dry, MAX(ts) AS last FROM receipts WHERE patient_id=$1');
   const team = await one("SELECT COUNT(*) FILTER (WHERE status='active')::int AS active, COUNT(*)::int AS ever FROM patient_connections WHERE patient_id=$1");
 
@@ -77,12 +79,16 @@ r.get('/patients/:id/data-overview', wrap(async (req, res) => {
     cat('photos', 'Photos', 'Of the patient and the people they know, stored encrypted', '0',
       !consent.photos ? 'off' : allPhotos.n ? 'collected' : 'available', allPhotos.n, [plural(allPhotos.n, 'photo', 'photos'), consent.photos ? 'Consent given' : 'Consent not given'],
       { last: allPhotos.last || null, next: consent.photos ? (allPhotos.n ? null : { text: 'Add a profile photo', tab: 'file' }) : { text: 'Switch on photo consent to allow photos', tab: 'consent' }, unit: 'photos' }),
+    cat('daily', 'Daily watch data', 'Sleep, steps and heart rate from a watch, one row a day', '0',
+      !consent.wearables ? 'off' : day.n ? 'collected' : 'available', day.n,
+      [plural(day.n, 'day', 'days'), `${day.sleep} with sleep`, `${day.steps} with steps`],
+      { last: day.last || null, series: weekly(dayTs), next: consent.wearables ? (day.n ? null : { text: 'Sync a watch from the Memora Android app', tab: 'watch' }) : { text: 'Switch on wearable consent to allow watch data', tab: 'consent' }, unit: 'days' }),
     cat('wearables', 'Phone and wearable data', 'Live heart rate, movement and location', '0',
       !consent.wearables ? 'off' : sig.n ? 'collected' : 'available', sig.n, [plural(sig.n, 'reading', 'readings'), plural(dev.n, 'device', 'devices'), consent.wearables ? 'Consent given' : 'Consent not given'],
       { last: sig.last || null, series: weekly(sigTs), next: consent.wearables ? (sig.n ? null : { text: 'Start a source on the Live tab', tab: 'live' }) : { text: 'Switch on wearable consent to allow live data', tab: 'consent' }, unit: 'readings' }),
   ];
 
-  const records = people.n + meds.n + places.n + logs.n + obs.n + mem.active + allPhotos.n + sig.n;
+  const records = people.n + meds.n + places.n + logs.n + obs.n + mem.active + allPhotos.n + sig.n + day.n;
   res.json({
     consent,
     totals: { records, collected: categories.filter((c) => c.state === 'collected').length, kinds: categories.length, consents_on: Object.values(consent).filter(Boolean).length },

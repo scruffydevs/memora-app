@@ -47,7 +47,7 @@ function CategoryCard({ c, go }) {
       <div className="flex flex-wrap items-center gap-2 mt-4 pt-3 border-t border-line">
         <Chip>{`Tier ${c.tier}`}</Chip>
         {c.last && <span className="text-xs text-muted">Latest {dateTime(c.last)}</span>}
-        {go && <div className="ml-auto">{c.next ? <Btn kind="ghost" onClick={() => go(c.next.tab)}>{c.next.text}</Btn> : <button className="text-sm text-terra font-semibold hover:underline" onClick={() => go(c.key === 'profile' ? 'file' : c.key === 'logs' ? 'logs' : c.key === 'observations' ? 'observations' : c.key === 'memories' ? 'memory' : c.key === 'wearables' ? 'live' : c.key === 'photos' ? 'file' : c.key)}>Open</button>}</div>}
+        {go && <div className="ml-auto">{c.next ? <Btn kind="ghost" onClick={() => go(c.next.tab)}>{c.next.text}</Btn> : <button className="text-sm text-terra font-semibold hover:underline" onClick={() => go(c.key === 'profile' ? 'file' : c.key === 'logs' ? 'logs' : c.key === 'observations' ? 'observations' : c.key === 'memories' ? 'memory' : c.key === 'wearables' ? 'live' : c.key === 'daily' ? 'watch' : c.key === 'photos' ? 'file' : c.key)}>Open</button>}</div>}
       </div>
     </Card>
   );
