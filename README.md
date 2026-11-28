@@ -112,3 +112,17 @@ Build command `npm run build`, start command `npm start`. The API serves the bui
 ## Principles
 
 Descriptive, never diagnostic. Photos are encrypted, consent-gated and not used for recognition. Anything sent to a model goes through the Gate, is masked, and is logged as a receipt.
+
+## Patient onboarding and the portfolio
+
+New patients go through a card-by-card onboarding in the team console (`/admin/patients/:id`, tab **Onboarding**): about them, profile photo,
+language, their story, diagnosis (as told by the doctor), memory and thinking, daily living, health, mood and behaviour, safety, routine, people and
+support, consent, and one last card. The questions are in `shared/intake.js` (used by the server and the web app); the important ones are marked.
+Answers save a card at a time and fill in the patient file. The last step writes the **portfolio**: a plain-language file for the family, carers
+and doctors. Every line must cite the answers it comes from (a line that cites nothing is dropped), the team approves each version, and carers only
+see the approved one.
+
+The portfolio is written by an AI model through OpenRouter when `OPENROUTER_API_KEY` is set (model `OPENROUTER_MODEL`, default
+`anthropic/claude-haiku-5.5`), and by a plain template without one. Names, places and dates are masked first (the Gate, plus a rule that masks capitalised words
+in free text), the exact text sent is kept as a receipt, and the names are restored in the reply. Set `PORTFOLIO_AI=off` to switch the AI writer off.
+Prototype: synthetic or volunteer data only.

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { api } from './api.js';
 import { Link } from './router.jsx';
 import { Btn, Chip, Notice, useAsync } from './ui.jsx';
@@ -14,9 +14,11 @@ import Watch from './views/Watch.jsx';
 import Places from './views/Places.jsx';
 import Memory from './views/Memory.jsx';
 import DataOverview from './views/DataOverview.jsx';
+import Setup from './views/Setup.jsx';
+import Portfolio from './views/Portfolio.jsx';
 
 const TABS = [
-  ['data', 'Data'], ['file', 'Patient file'], ['people', 'People'], ['medicines', 'Medicines'], ['places', 'Places'], ['consent', 'Consent'],
+  ['setup', 'Onboarding'], ['portfolio', 'Portfolio'], ['data', 'Data'], ['file', 'Patient file'], ['people', 'People'], ['medicines', 'Medicines'], ['places', 'Places'], ['consent', 'Consent'],
   ['connections', 'Connections'], ['memory', 'Memory'], ['watch', 'Watch'], ['live', 'Live'], ['observations', 'Observations'], ['logs', 'Logs'],
 ];
 
@@ -24,8 +26,13 @@ const TABS = [
 export default function AdminPatient({ me, pid, onSignOut }) {
   const [tab, setTab] = useState('data');
   const info = useAsync(() => api.get(`/api/patients/${pid}/profile`), [pid]);
+  const intake = useAsync(() => api.get(`/api/patients/${pid}/intake`), [pid]);
+  // A patient whose onboarding is not finished opens on it.
+  useEffect(() => { if (intake.data && !intake.data.completed_at) setTab('setup'); }, [intake.data]);
 
   const views = {
+    setup: <Setup pid={pid} go={setTab} />,
+    portfolio: <Portfolio pid={pid} admin go={setTab} />,
     data: <DataOverview pid={pid} go={setTab} />,
     file: <Profile pid={pid} />,
     people: <People pid={pid} />,

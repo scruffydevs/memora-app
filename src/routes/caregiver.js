@@ -32,8 +32,11 @@ r.get('/patients/:id/profile', wrap(async (req, res) => {
 }));
 
 r.put('/patients/:id/profile', requireAdmin, wrap(async (req, res) => {
-  const id = Number(req.params.id);
-  const b = req.body || {};
+  res.json(await saveProfile(Number(req.params.id), req.body || {}, req.user.name));
+}));
+
+// The profile save is a function so onboarding can use it too.
+export async function saveProfile(id, b, userName) {
   const row = (await q(
     `INSERT INTO patient_profiles (patient_id, preferred_name, language, age_band, background, traits, likes, dislikes, calming, triggers, communication, routine, consent_photos, consent_caregiver_view,
                                    conditions, allergies, emergency_name, emergency_phone, clinician_name, clinic, consent_wearables, updated_at)
@@ -57,10 +60,10 @@ r.put('/patients/:id/profile', requireAdmin, wrap(async (req, res) => {
   }
   // Withdrawing photo consent removes stored photos.
   if (!row.consent_photos) await q('DELETE FROM photos WHERE patient_id=$1', [id]);
-  await engine.onProfileSaved(id, req.user.name); // keep the memory engine in step with the patient file
+  await engine.onProfileSaved(id, userName); // keep the memory engine in step with the patient file
   record('profile', id, 'Patient file saved; memories brought up to date');
-  res.json(row);
-}));
+  return row;
+}
 
 // ---------- people ----------
 r.get('/patients/:id/contacts', wrap(async (req, res) => {

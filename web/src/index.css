@@ -19,3 +19,9 @@ body {
 @media (max-width: 767px) { .tabs-scroll { mask-image: linear-gradient(to right, #000 88%, transparent); -webkit-mask-image: linear-gradient(to right, #000 88%, transparent); } }
 .input { @apply w-full rounded-xl border border-line bg-white px-3 py-2.5 text-ink placeholder:text-muted/60 focus:outline-none focus:ring-2 focus:ring-terra/40 focus:border-terra; }
 .label { @apply block text-sm font-semibold text-muted mb-1; }
+
+/* Printing the portfolio: just the document. */
+@media print {
+  header, nav { display: none !important; }
+  body { background: #fff !important; padding: 0 !important; }
+}

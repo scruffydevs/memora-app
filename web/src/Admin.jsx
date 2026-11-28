@@ -73,22 +73,19 @@ function Patients() {
   const create = async () => {
     setErr(''); setMade(null);
     if (!f.name.trim()) return setErr('Enter the patient’s full name.');
-    try { const p = await api.post('/api/admin/patients', f); setMade(p); setF({ name: '', preferred_name: '', language: '', age_band: '' }); reload(); }
+    try { const p = await api.post('/api/admin/patients', { name: f.name }); navigate(`/admin/patients/${p.id}`); }
     catch (e) { setErr(e.message); }
   };
   return (
     <div className="space-y-6">
       <Card className="p-6">
-        <H2 hint="You create the patient account first. The caregiver then connects to it with a one-time code.">Create a patient account</H2>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Full name"><input className="input" value={f.name} onChange={(e) => set('name', e.target.value)} /></Field>
-          <Field label="Name they like to be called"><input className="input" value={f.preferred_name} onChange={(e) => set('preferred_name', e.target.value)} placeholder="Optional" /></Field>
-          <Field label="Languages"><input className="input" value={f.language} onChange={(e) => set('language', e.target.value)} placeholder="e.g. English and Kannada" /></Field>
-          <Field label="Age band"><input className="input" value={f.age_band} onChange={(e) => set('age_band', e.target.value)} placeholder="e.g. 70s" /></Field>
+        <H2 hint="Create the account, then a short card-by-card onboarding collects everything else and writes their portfolio. The caregiver connects later with a one-time code.">New patient</H2>
+        <div className="max-w-md">
+          <Field label="Full name"><input className="input" value={f.name} onChange={(e) => set('name', e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') create(); }} /></Field>
         </div>
         {err && <div className="mt-4"><Notice tone="terra">{err}</Notice></div>}
         {made && <div className="mt-4"><Notice tone="sage"><b>{made.name}</b> created with patient code <b className="font-mono">{made.patient_code}</b>. Next: open the patient file to complete the profile, then generate a connection code for their caregiver.</Notice></div>}
-        <Btn className="mt-4" onClick={create}>Create patient account</Btn>
+        <Btn className="mt-4" onClick={create}>Start onboarding</Btn>
       </Card>
       {loading ? <p className="text-muted">Loading…</p> : error ? <Notice tone="terra">{error.message}</Notice> : !data.length ? <Card className="p-8 text-center text-muted">No patient accounts yet.</Card> : (
         <div className="grid gap-5 lg:grid-cols-2">{data.map((p) => <PatientRow key={p.id} p={p} reload={reload} />)}</div>

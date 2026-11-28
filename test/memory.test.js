@@ -6,6 +6,8 @@ import assert from 'node:assert/strict';
 process.env.DB_DRIVER = 'pglite';
 process.env.ADMIN_EMAIL = 'admin@memora.test';
 process.env.ADMIN_PASSWORD = 'correct horse battery';
+process.env.OPENROUTER_API_KEY = ''; // tests never call a real AI service
+process.env.PORTFOLIO_AI = 'off';
 
 const { pool } = await import('../src/db.js');
 const { runMigrations } = await import('../src/migrate.js');
@@ -400,4 +402,83 @@ test('team accounts cannot sign in from the Android app', async () => {
   // the website login for the same account still works
   const w = await fetch(base + '/api/auth/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'admin@memora.test', password: 'correct horse battery' }) });
   assert.equal(w.status, 200);
+});
+
+test('onboarding: answers save a card at a time, flow into the patient file, and only the team can write them', async () => {
+  const intake = (body, who = admin, id = P2.id) => who('PUT', url('/intake', id), body);
+  let r = await admin('GET', url('/intake', P2.id));
+  assert.equal(r.status, 200);
+  assert.equal(r.json.started, false);
+
+  r = await intake({ step: 1, answers: { 'about.name': 'Kamala Rao', 'about.preferred': 'Kamala', 'about.age': '81', 'about.pronouns': 'Nonsense', 'nope.key': 'x', 'diagnosis.stage': 'Early or mild', 'photo.consent': true } });
+  assert.equal(r.status, 200);
+  assert.equal(r.json.answers['about.age'], 81);
+  assert.equal(r.json.answers['about.pronouns'], undefined, 'an answer that is not an option is dropped');
+  assert.equal(r.json.answers['nope.key'], undefined, 'an unknown question is dropped');
+  assert.equal(r.json.step, 1);
+  assert.ok(r.json.started && r.json.progress.done === 4 && r.json.missing_key.includes('health.allergies'));
+
+  // it reaches the patient file and the patient record
+  const file = (await admin('GET', url('/profile', P2.id))).json;
+  assert.equal(file.patient.name, 'Kamala Rao');
+  assert.equal(file.profile.preferred_name, 'Kamala');
+  assert.equal(file.profile.age_band, '80s');
+  assert.equal(file.profile.consent_photos, true);
+  assert.match(file.profile.conditions, /stage as told: Early or mild/);
+
+  // a later card adds to the earlier answers, and null clears one
+  r = await intake({ answers: { 'language.comfortable': 'Kannada', 'about.preferred': null } });
+  assert.equal(r.json.answers['about.name'], 'Kamala Rao');
+  assert.equal(r.json.answers['about.preferred'], undefined);
+  assert.equal(r.json.answers['language.comfortable'], 'Kannada');
+
+  // access: the team only
+  assert.equal((await alice('GET', url('/intake'))).status, 403);
+  assert.equal((await intake({ answers: { 'about.name': 'X' } }, alice, P.id)).status, 403);
+  assert.equal((await anon('GET', url('/intake', P2.id))).status, 401);
+});
+
+test('onboarding: a portfolio is a draft until approved, and carers only ever see the approved one', async () => {
+  const id = P.id;
+  await admin('PUT', url('/intake', id), { answers: { 'about.name': 'Test Patient', 'about.age': 79, 'diagnosis.type': "Alzheimer's disease", 'diagnosis.stage': 'Early or mild', 'language.comfortable': 'Kannada', 'consent.caregiver_view': true } });
+
+  // nothing yet
+  assert.equal((await alice('GET', url('/portfolio', id))).json.approved, null);
+  assert.equal((await admin('POST', url('/portfolio/generate', P2.id + 100), {})).status, 400, 'nothing to write from when there are no answers');
+  assert.equal((await alice('POST', url('/portfolio/generate', id), {})).status, 403, 'carers cannot generate');
+
+  let r = await admin('POST', url('/portfolio/generate', id), { ai: false });
+  assert.equal(r.status, 201);
+  assert.equal(r.json.version, 1);
+  assert.equal(r.json.status, 'draft');
+  assert.equal(r.json.provider, 'template');
+  const c = r.json.content;
+  assert.ok(c.sections.length && c.sections.every((s) => s.items.every((i) => i.from.length)));
+  assert.ok(c.gaps.some((g) => /allergies/i.test(g.question)));
+
+  // the team sees the draft, carers see nothing
+  const asAdmin = (await admin('GET', url('/portfolio', id))).json;
+  assert.equal(asAdmin.draft.version, 1);
+  assert.equal(asAdmin.approved, null);
+  assert.equal((await alice('GET', url('/portfolio', id))).json.approved, null);
+  assert.equal((await bob('GET', url('/portfolio', id))).status, 403);
+
+  // approve it: now carers see it
+  assert.equal((await alice('POST', url('/portfolio/1/approve', id))).status, 403);
+  assert.equal((await admin('POST', url('/portfolio/1/approve', id))).status, 200);
+  const seen = (await alice('GET', url('/portfolio', id))).json;
+  assert.equal(seen.approved.version, 1);
+  assert.equal(seen.can_edit, false);
+  assert.equal(seen.draft, undefined, 'carers are never shown a draft');
+
+  // a new draft does not replace the approved one until it is approved
+  r = await admin('POST', url('/portfolio/generate', id), { ai: false });
+  assert.equal(r.json.version, 2);
+  assert.equal((await alice('GET', url('/portfolio', id))).json.approved.version, 1);
+  assert.equal((await admin('POST', url('/portfolio/2/approve', id))).status, 200);
+  assert.equal((await alice('GET', url('/portfolio', id))).json.approved.version, 2);
+  assert.equal((await admin('POST', url('/portfolio/2/approve', id))).status, 404, 'only a draft can be approved');
+
+  // a portfolio cannot be made from nothing
+  assert.equal((await admin('POST', url('/portfolio/generate', P2.id + 0), { ai: false })).status === 201, true, 'the other patient has answers');
 });
