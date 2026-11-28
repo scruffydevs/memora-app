@@ -5,7 +5,7 @@ name: Android app
 on:
   workflow_dispatch:
   push:
-    paths: ['mobile/**', '.github/workflows/android.yml']
+    paths: ['mobile/**', 'web/src/**', 'web/public/**', 'web/index.html', 'web/package.json', '.github/workflows/android.yml']
 
 jobs:
   apk:
@@ -14,8 +14,8 @@ jobs:
       run:
         working-directory: mobile
     env:
-      # Optional: set a repository variable MEMORA_URL to point the app at another server.
-      MEMORA_URL: ${{ vars.MEMORA_URL }}
+      # Optional repository variable MEMORA_API: the server the app talks to (default: the deployed site).
+      MEMORA_API: ${{ vars.MEMORA_API }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -28,6 +28,7 @@ jobs:
           distribution: temurin
           java-version: 21
       - run: npm ci
+      - run: npm run build:web
       - run: npx cap sync android
       - run: chmod +x gradlew && ./gradlew assembleDebug
         working-directory: mobile/android

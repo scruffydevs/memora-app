@@ -4,8 +4,9 @@
   "private": true,
   "description": "Memora Android app: a native shell around the Memora web app that reads watch data from Health Connect.",
   "scripts": {
-    "sync": "cap sync android",
-    "apk": "cap sync android && cd android && ./gradlew assembleDebug"
+    "build:web": "node build-web.mjs",
+    "sync": "npm run build:web && cap sync android",
+    "apk": "npm run build:web && cap sync android && cd android && ./gradlew assembleDebug"
   },
   "dependencies": {
     "@capacitor/android": "^8.6.3",

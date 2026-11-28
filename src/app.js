@@ -62,6 +62,18 @@ export function createApp() {
 
   app.get('/health', wrap(async (_req, res) => { await q('SELECT 1'); res.json({ ok: true }); }));
 
+  // The Android app loads its screens from the phone (https://localhost), not from this site, so its calls are
+  // cross-origin. It signs in with a bearer token and never sends cookies, so no credentials are allowed here.
+  const APP_ORIGINS = new Set(['https://localhost', 'http://localhost', 'capacitor://localhost']);
+  app.use('/api', (req, res, next) => {
+    const origin = req.get('origin');
+    if (origin && APP_ORIGINS.has(origin)) {
+      res.set({ 'Access-Control-Allow-Origin': origin, Vary: 'Origin', 'Access-Control-Allow-Headers': 'Authorization, Content-Type, X-Memora-Client', 'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS', 'Access-Control-Max-Age': '600' });
+      if (req.method === 'OPTIONS') return res.status(204).end();
+    }
+    next();
+  });
+
   const api = express.Router();
   api.use(loadUser);
   api.use('/auth', authRoutes);

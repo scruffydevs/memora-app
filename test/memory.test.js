@@ -327,3 +327,43 @@ test('daily watch data: saved per day, updated not duplicated, validated, consen
   assert.equal(g.days.length, 0);
   assert.equal((await post({ days: [night] })).status, 403);
 });
+
+test('the Android app signs in with a bearer token, no cookie, and only the phone origin may call across origins', async () => {
+  const call = (method, path, { headers = {}, body } = {}) => fetch(base + path, { method, headers: { 'content-type': 'application/json', ...headers }, body: body === undefined ? undefined : JSON.stringify(body) });
+  const app = { 'x-memora-client': 'app', origin: 'https://localhost' };
+
+  // a website login gets a cookie and no token in the body
+  let r = await call('POST', '/api/auth/login', { body: { email: 'alice@x.test', password: 'alice long password' } });
+  assert.equal(r.status, 200);
+  assert.ok(r.headers.get('set-cookie'), 'websites keep the httpOnly cookie');
+  assert.equal((await r.json()).token, undefined, 'and never see the token');
+
+  // the app asks for the token and gets no cookie
+  r = await call('POST', '/api/auth/login', { headers: app, body: { email: 'alice@x.test', password: 'alice long password' } });
+  assert.equal(r.status, 200);
+  assert.equal(r.headers.get('set-cookie'), null);
+  assert.equal(r.headers.get('access-control-allow-origin'), 'https://localhost');
+  assert.equal(r.headers.get('access-control-allow-credentials'), null, 'no credentials are ever allowed cross-origin');
+  const { token, user } = await r.json();
+  assert.ok(token && token.length >= 40);
+  assert.equal(user.email, 'alice@x.test');
+
+  // the token works, and a made-up or malformed one does not
+  const bearer = (t) => ({ authorization: `Bearer ${t}`, origin: 'https://localhost' });
+  assert.equal((await call('GET', '/api/auth/me', { headers: bearer(token) })).status, 200);
+  assert.equal((await call('GET', '/api/auth/me', { headers: bearer('x'.repeat(43)) })).status, 401);
+  assert.equal((await call('GET', '/api/auth/me', { headers: { authorization: 'Bearer short' } })).status, 401);
+  assert.equal((await call('GET', `/api/patients/${P.id}/daily-metrics`, { headers: bearer(token) })).status, 200, 'a connected caregiver reaches their patient');
+  assert.equal((await call('GET', `/api/patients/${P2.id}/daily-metrics`, { headers: bearer(token) })).status, 403, 'but not anyone else\'s');
+
+  // preflight: allowed for the phone origin, nothing for any other site
+  r = await call('OPTIONS', '/api/auth/login', { headers: { origin: 'https://localhost', 'access-control-request-method': 'POST', 'access-control-request-headers': 'authorization,content-type,x-memora-client' } });
+  assert.equal(r.status, 204);
+  assert.match(r.headers.get('access-control-allow-headers'), /Authorization/);
+  r = await call('GET', '/api/auth/me', { headers: { origin: 'https://evil.example', authorization: `Bearer ${token}` } });
+  assert.equal(r.headers.get('access-control-allow-origin'), null, 'another origin gets no CORS headers');
+
+  // signing out from the app ends that token
+  assert.equal((await call('POST', '/api/auth/logout', { headers: bearer(token) })).status, 204);
+  assert.equal((await call('GET', '/api/auth/me', { headers: bearer(token) })).status, 401);
+});

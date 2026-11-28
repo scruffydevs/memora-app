@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { api } from '../api.js';
+import { api, subscribe } from '../api.js';
 import { Btn, Card, Chip, H2, Notice, dateTime } from '../ui.jsx';
 
 // Live data: a phone's sensors, a Bluetooth heart-rate device, or a simulator feed one pipeline.
@@ -47,12 +47,9 @@ export default function Live({ pid }) {
   useEffect(() => { load(); }, [load]);
   useEffect(() => {
     if (!state?.consent) return undefined;
-    const es = new EventSource(`/api/patients/${pid}/live`);
     let lastLat = null;
-    es.onopen = () => setStreamOn(true);
-    es.onerror = () => setStreamOn(false);
-    es.onmessage = (e) => {
-      const m = JSON.parse(e.data);
+    const stop = subscribe(`/api/patients/${pid}/live`, { onOpen: () => setStreamOn(true), onError: () => setStreamOn(false), onMessage: (raw) => {
+      const m = JSON.parse(raw);
       push(m.kind, m.value, m.ts);
       if (m.kind === 'lat') lastLat = m.value;
       if (m.kind === 'lon' && lastLat != null) {
@@ -60,8 +57,8 @@ export default function Live({ pid }) {
         api.get(`/api/patients/${pid}/live/state?minutes=1`).then((st) => { if (st.summary.location) setLoc(st.summary.location); setPlaces(st.places || []); setState((s) => ({ ...s, devices: st.devices, summary: st.summary })); }).catch(() => {});
       }
       if (m.kind === 'heart_rate' || m.kind === 'motion') setState((s) => s && { ...s, devices: s.devices.some((d) => d.label === m.device.label) ? s.devices.map((d) => (d.label === m.device.label ? { ...d, last_seen: m.ts } : d)) : [{ ...m.device, last_seen: m.ts }, ...s.devices] });
-    };
-    return () => { es.close(); setStreamOn(false); };
+    } });
+    return () => { stop(); setStreamOn(false); };
   }, [pid, state?.consent, push]);
 
   const send = useCallback(async (device, samples) => {

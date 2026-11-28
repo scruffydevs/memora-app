@@ -1,9 +1,11 @@
 import { Router } from 'express';
 import { pool, q } from '../db.js';
 import { wrap, str } from '../util.js';
-import { hashPassword, verifyPassword, dummyVerify, validEmail, validPassword, startSession, endSession, requireUser, rateLimit, codeHash, normaliseCode, audit } from '../auth.js';
+import { hashPassword, verifyPassword, dummyVerify, validEmail, validPassword, startSession, endSession, isAppClient, requireUser, rateLimit, codeHash, normaliseCode, audit } from '../auth.js';
 
 const r = Router();
+// Only the Android app (which asks for it) gets the session token in the body; websites keep it in the httpOnly cookie.
+const withToken = (req, body, token) => (isAppClient(req) ? { ...body, token } : body);
 const byIpEmail = (req) => `${req.ip}|${String(req.body?.email || '').toLowerCase()}`;
 
 export async function sessionInfo(user) {
@@ -24,8 +26,8 @@ r.post('/signup', rateLimit(byIpEmail, { max: 6 }), wrap(async (req, res) => {
   if ((await q('SELECT 1 FROM users WHERE email=$1', [email])).rows.length) return res.status(409).json({ error: 'email_taken' });
   const user = (await q("INSERT INTO users (email, name, password_hash, role) VALUES ($1,$2,$3,'caregiver') RETURNING id, email, name, role", [email, name, await hashPassword(password)])).rows[0];
   await audit(user.id, 'caregiver_signup');
-  await startSession(req, res, user.id);
-  res.status(201).json(await sessionInfo(user));
+  const token = await startSession(req, res, user.id);
+  res.status(201).json(withToken(req, await sessionInfo(user), token));
 }));
 
 r.post('/login', rateLimit(byIpEmail), wrap(async (req, res) => {
@@ -36,8 +38,8 @@ r.post('/login', rateLimit(byIpEmail), wrap(async (req, res) => {
   if (!(await verifyPassword(password, u.password_hash))) return res.status(401).json({ error: 'invalid_login' });
   if (u.disabled) return res.status(403).json({ error: 'account_disabled' });
   await q('UPDATE users SET last_login=now() WHERE id=$1', [u.id]);
-  await startSession(req, res, u.id);
-  res.json(await sessionInfo(u));
+  const token = await startSession(req, res, u.id);
+  res.json(withToken(req, await sessionInfo(u), token));
 }));
 
 r.post('/logout', wrap(async (req, res) => { await endSession(req, res); res.status(204).end(); }));

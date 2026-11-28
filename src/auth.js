@@ -41,21 +41,29 @@ function readCookie(req, name) {
   return null;
 }
 
+// The Android app is not served from this site, so a cookie would not follow its requests. It asks for the same
+// opaque session token in the response (header X-Memora-Client: app) and sends it back as "Authorization: Bearer".
+export const isAppClient = (req) => req.get('x-memora-client') === 'app';
+const bearerToken = (req) => {
+  const m = /^Bearer\s+([A-Za-z0-9_-]{20,100})$/.exec(req.get('authorization') || '');
+  return m ? m[1] : null;
+};
+
 export async function startSession(req, res, userId) {
   const token = crypto.randomBytes(32).toString('base64url');
   await q(`INSERT INTO sessions (token_hash, user_id, expires_at) VALUES ($1, $2, now() + interval '${SESSION_DAYS} days')`, [sha256(token), userId]);
-  res.cookie(COOKIE, token, { httpOnly: true, sameSite: 'lax', secure: Boolean(req.secure), maxAge: SESSION_DAYS * 864e5, path: '/' });
+  if (!isAppClient(req)) res.cookie(COOKIE, token, { httpOnly: true, sameSite: 'lax', secure: Boolean(req.secure), maxAge: SESSION_DAYS * 864e5, path: '/' });
+  return token;
 }
 
 export async function endSession(req, res) {
-  const t = readCookie(req, COOKIE);
-  if (t) await q('DELETE FROM sessions WHERE token_hash=$1', [sha256(t)]);
+  for (const t of [readCookie(req, COOKIE), bearerToken(req)]) if (t) await q('DELETE FROM sessions WHERE token_hash=$1', [sha256(t)]);
   res.clearCookie(COOKIE, { path: '/' });
 }
 
 export async function loadUser(req, _res, next) {
   try {
-    const t = readCookie(req, COOKIE);
+    const t = bearerToken(req) || readCookie(req, COOKIE);
     req.user = null;
     if (t) {
       const r = await q('SELECT u.id, u.email, u.name, u.role FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash=$1 AND s.expires_at > now() AND NOT u.disabled', [sha256(t)]);
