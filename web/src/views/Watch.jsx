@@ -92,7 +92,7 @@ export default function Watch({ pid }) {
       {days.length === 0 ? (
         <Card className="p-8 text-center text-muted">No watch data yet.</Card>
       ) : (
-        <Card className="p-0 overflow-hidden">
+        <Card className="p-0 overflow-hidden hidden sm:block">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="text-left text-muted border-b border-line">
@@ -112,6 +112,22 @@ export default function Watch({ pid }) {
             </table>
           </div>
         </Card>
+      )}
+
+      {days.length > 0 && (
+        <div className="space-y-3 sm:hidden">
+          {days.map((d) => (
+            <Card key={d.day} className="p-4">
+              <p className="font-semibold">{dayText(d.day)}</p>
+              <div className="mt-2 space-y-3">
+                <div><div className="flex justify-between text-sm"><span className="text-muted">Sleep</span><span className="tabular-nums font-semibold">{hm(d.sleep_minutes)}</span></div><Bar value={d.sleep_minutes} max={maxSleep} /></div>
+                <div><div className="flex justify-between text-sm"><span className="text-muted">Steps</span><span className="tabular-nums font-semibold">{d.steps != null ? d.steps.toLocaleString() : 'None'}</span></div><Bar value={d.steps} max={maxSteps} tone="bg-sage" /></div>
+                <div className="flex justify-between text-sm"><span className="text-muted">Awake in the night</span><span className="tabular-nums">{d.awakenings != null ? `${d.awakenings} time${d.awakenings === 1 ? '' : 's'}, ${d.awake_minutes ?? 0} min` : 'None'}</span></div>
+                <div className="flex justify-between text-sm"><span className="text-muted">Resting heart rate</span><span className="tabular-nums">{d.resting_hr != null ? `${d.resting_hr} bpm` : 'None'}</span></div>
+              </div>
+            </Card>
+          ))}
+        </div>
       )}
     </div>
   );

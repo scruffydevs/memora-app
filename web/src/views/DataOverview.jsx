@@ -21,10 +21,10 @@ function Bars({ values }) {
 
 function Stat({ value, label, hint }) {
   return (
-    <Card className="p-5">
-      <p className="font-display text-4xl font-bold text-terra tabular-nums leading-none">{value}</p>
-      <p className="font-semibold mt-2">{label}</p>
-      {hint && <p className="text-xs text-muted mt-0.5">{hint}</p>}
+    <Card className="p-4 sm:p-5">
+      <p className="font-display text-3xl sm:text-4xl font-bold text-terra tabular-nums leading-none">{value}</p>
+      <p className="font-semibold mt-2 leading-snug">{label}</p>
+      {hint && <p className="text-xs text-muted mt-0.5 hidden sm:block">{hint}</p>}
     </Card>
   );
 }
@@ -47,7 +47,7 @@ function CategoryCard({ c, go }) {
       <div className="flex flex-wrap items-center gap-2 mt-4 pt-3 border-t border-line">
         <Chip>{`Tier ${c.tier}`}</Chip>
         {c.last && <span className="text-xs text-muted">Latest {dateTime(c.last)}</span>}
-        {go && <div className="ml-auto">{c.next ? <Btn kind="ghost" onClick={() => go(c.next.tab)}>{c.next.text}</Btn> : <button className="text-sm text-terra font-semibold hover:underline" onClick={() => go(c.key === 'profile' ? 'file' : c.key === 'logs' ? 'logs' : c.key === 'observations' ? 'observations' : c.key === 'memories' ? 'memory' : c.key === 'wearables' ? 'live' : c.key === 'daily' ? 'watch' : c.key === 'photos' ? 'file' : c.key)}>Open</button>}</div>}
+        {go && <div className="ml-auto">{c.next ? <Btn kind="ghost" onClick={() => go(c.next.tab)}>{c.next.text}</Btn> : <button className="inline-flex items-center min-h-[44px] px-3 text-sm text-terra font-semibold hover:underline" onClick={() => go(c.key === 'profile' ? 'file' : c.key === 'logs' ? 'logs' : c.key === 'observations' ? 'observations' : c.key === 'memories' ? 'memory' : c.key === 'wearables' ? 'live' : c.key === 'daily' ? 'watch' : c.key === 'photos' ? 'file' : c.key)}>Open</button>}</div>}
       </div>
     </Card>
   );
@@ -82,7 +82,7 @@ export default function DataOverview({ pid, go }) {
     <div className="space-y-8">
       <H2 hint="Everything Memora holds about this person, what could still be collected, and what has left the vault. Counts and dates only, never the content.">Data overview</H2>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
         <Stat value={totals.records} label="Records held" hint="People, medicines, places, logs, notes, memories, photos, readings" />
         <Stat value={`${totals.collected} of ${totals.kinds}`} label="Kinds of data collected" hint="The rest could still be collected" />
         <Stat value={`${totals.consents_on} of 3`} label="Consent switches on" hint="Photos, wearable data, caregiver view" />

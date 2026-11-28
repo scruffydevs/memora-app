@@ -48,9 +48,9 @@ export default function Dashboard({ me, onSignOut, onConnectAnother, onMeChange 
         <Btn kind="ghost" onClick={onSignOut}>Sign out</Btn>
       </header>
 
-      <nav className="flex gap-1 overflow-x-auto border-b border-line mb-6" aria-label="Sections">
+      <nav className="tabs-scroll flex gap-1 overflow-x-auto border-b border-line mb-6" aria-label="Sections">
         {TABS.map(([k, label]) => (
-          <button key={k} onClick={() => setTab(k)} className={`px-4 py-2.5 font-semibold whitespace-nowrap border-b-[3px] -mb-px transition ${tab === k ? 'border-terra text-terra' : 'border-transparent text-muted hover:text-ink'}`}>{label}</button>
+          <button key={k} onClick={(e) => { setTab(k); e.currentTarget.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' }); }} className={`px-4 py-2.5 font-semibold whitespace-nowrap border-b-[3px] -mb-px transition ${tab === k ? 'border-terra text-terra' : 'border-transparent text-muted hover:text-ink'}`}>{label}</button>
         ))}
       </nav>
 

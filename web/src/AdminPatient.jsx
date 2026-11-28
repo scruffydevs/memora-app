@@ -44,7 +44,7 @@ export default function AdminPatient({ me, pid, onSignOut }) {
     <div className="max-w-6xl mx-auto px-4 pb-16">
       <header className="flex flex-wrap items-center gap-3 py-5">
         <div className="mr-auto">
-          <Link to="/admin" className="text-sm text-terra font-semibold hover:underline">← All patients</Link>
+          <Link to="/admin" className="inline-block py-2 text-sm text-terra font-semibold hover:underline">← All patients</Link>
           <div className="font-display text-3xl font-bold leading-tight mt-1">{info.data?.patient.name || 'Patient'}</div>
         </div>
         {info.data && <Chip tone="plain">{info.data.patient.patient_code}</Chip>}
@@ -52,9 +52,9 @@ export default function AdminPatient({ me, pid, onSignOut }) {
         <Btn kind="ghost" onClick={onSignOut}>Sign out</Btn>
       </header>
       {info.error && <Notice tone="terra">{info.error.message}</Notice>}
-      <nav className="flex gap-1 overflow-x-auto border-b border-line mb-6" aria-label="Patient sections">
+      <nav className="tabs-scroll flex gap-1 overflow-x-auto border-b border-line mb-6" aria-label="Patient sections">
         {TABS.map(([k, l]) => (
-          <button key={k} onClick={() => setTab(k)} className={`px-4 py-2.5 font-semibold whitespace-nowrap border-b-[3px] -mb-px transition ${tab === k ? 'border-terra text-terra' : 'border-transparent text-muted hover:text-ink'}`}>{l}</button>
+          <button key={k} onClick={(e) => { setTab(k); e.currentTarget.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' }); }} className={`px-4 py-2.5 font-semibold whitespace-nowrap border-b-[3px] -mb-px transition ${tab === k ? 'border-terra text-terra' : 'border-transparent text-muted hover:text-ink'}`}>{l}</button>
         ))}
       </nav>
       <div key={`${tab}-${pid}`}>{views[tab]}</div>
